@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Email Pair #{{ pair.id }} — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-3 mb-6">
+  {% if site %}
+  <a href="/sites/{{ site.slug }}" class="text-herba hover:underline text-sm">← {{ site.slug }}</a>
+  {% else %}
+  <a href="/" class="text-herba hover:underline text-sm">← Overview</a>
+  {% endif %}
+  <span class="text-gray-300">/</span>
+  <h1 class="text-2xl font-bold">Email Pair #{{ pair.id }}</h1>
+  {% if pair.status == 'published' %}
+    <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">pubblicato</span>
+  {% elif pair.status == 'draft' %}
+    <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs">bozza</span>
+  {% else %}
+    <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs">{{ pair.status }}</span>
+  {% endif %}
+</div>
+
+<!-- Meta info -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <div class="text-xs text-gray-400 mb-1">Sito</div>
+    <div class="font-medium text-sm">{{ site.slug if site else '—' }}</div>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <div class="text-xs text-gray-400 mb-1">Lingua</div>
+    <div class="font-medium text-sm">{{ pair.language }}</div>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <div class="text-xs text-gray-400 mb-1">Mautic ID Email 1</div>
+    <div class="font-medium text-sm">{{ pair.mautic_email_1_id or '—' }}</div>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <div class="text-xs text-gray-400 mb-1">Mautic ID Email 2</div>
+    <div class="font-medium text-sm">{{ pair.mautic_email_2_id or '—' }}</div>
+  </div>
+</div>
+
+{% if topic %}
+<div class="bg-herba-light border border-herba/20 rounded-xl p-4 mb-6 text-sm">
+  <span class="font-medium text-herba-dark">Argomento:</span>
+  {{ topic.title }}
+</div>
+{% endif %}
+
+<!-- Email 1 -->
+<div class="mb-6">
+  <h2 class="text-lg font-semibold mb-3">📧 Email 1 — Problema / Nurturing</h2>
+  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="border-b bg-gray-50 px-5 py-3">
+      <div class="text-xs text-gray-400">Oggetto</div>
+      <div class="font-medium">{{ pair.email_1_subject or '—' }}</div>
+    </div>
+    <div class="px-5 py-4">
+      {% if pair.email_1_body %}
+      <div class="prose prose-sm max-w-none text-sm leading-relaxed">
+        {{ pair.email_1_body | safe }}
+      </div>
+      {% else %}
+      <p class="text-gray-400 text-sm">Nessun contenuto.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Email 2 -->
+<div>
+  <h2 class="text-lg font-semibold mb-3">📧 Email 2 — Prodotto / Soluzione</h2>
+  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="border-b bg-gray-50 px-5 py-3">
+      <div class="text-xs text-gray-400">Oggetto</div>
+      <div class="font-medium">{{ pair.email_2_subject or '—' }}</div>
+    </div>
+    <div class="px-5 py-4">
+      {% if pair.email_2_body %}
+      <div class="prose prose-sm max-w-none text-sm leading-relaxed">
+        {{ pair.email_2_body | safe }}
+      </div>
+      {% else %}
+      <p class="text-gray-400 text-sm">Nessun contenuto.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

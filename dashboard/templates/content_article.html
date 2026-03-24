@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Articolo #{{ article.id }} — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center gap-3 mb-6">
+  {% if site %}
+  <a href="/sites/{{ site.slug }}" class="text-herba hover:underline text-sm">← {{ site.slug }}</a>
+  {% else %}
+  <a href="/" class="text-herba hover:underline text-sm">← Overview</a>
+  {% endif %}
+  <span class="text-gray-300">/</span>
+  <h1 class="text-2xl font-bold">Articolo #{{ article.id }}</h1>
+  {% if article.status == 'published' %}
+    <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">pubblicato</span>
+  {% elif article.status == 'pending_approval' %}
+    <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs">in approvazione</span>
+  {% else %}
+    <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs">{{ article.status }}</span>
+  {% endif %}
+</div>
+
+<!-- Meta -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <div class="text-xs text-gray-400 mb-1">Sito</div>
+    <div class="font-medium text-sm">{{ site.slug if site else '—' }}</div>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <div class="text-xs text-gray-400 mb-1">Lingua</div>
+    <div class="font-medium text-sm">{{ article.language }}</div>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <div class="text-xs text-gray-400 mb-1">WP Post ID</div>
+    <div class="font-medium text-sm">{{ article.wp_post_id or '—' }}</div>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <div class="text-xs text-gray-400 mb-1">Slug</div>
+    <div class="font-medium text-sm text-gray-500 truncate">{{ article.slug or '—' }}</div>
+  </div>
+</div>
+
+<!-- SEO meta -->
+<div class="bg-white rounded-xl border shadow-sm p-5 mb-6">
+  <h2 class="font-semibold text-sm text-gray-600 uppercase tracking-wide mb-3">SEO Meta</h2>
+  <div class="space-y-2 text-sm">
+    <div><span class="text-gray-400">Meta title:</span> {{ article.meta_title or '—' }}</div>
+    <div><span class="text-gray-400">Meta description:</span> {{ article.meta_description or '—' }}</div>
+  </div>
+</div>
+
+{% if article.image_url %}
+<!-- Image -->
+<div class="mb-6">
+  <h2 class="text-lg font-semibold mb-3">🖼 Immagine</h2>
+  <img src="{{ article.image_url }}" alt="Featured image"
+       class="rounded-xl shadow-sm max-h-64 object-cover w-full">
+  {% if article.image_prompt %}
+  <p class="text-xs text-gray-400 mt-2">Prompt: {{ article.image_prompt }}</p>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if topic %}
+<div class="bg-herba-light border border-herba/20 rounded-xl p-4 mb-6 text-sm">
+  <span class="font-medium text-herba-dark">Argomento:</span> {{ topic.title }}
+</div>
+{% endif %}
+
+<!-- Article content -->
+<div>
+  <h2 class="text-lg font-semibold mb-3">📝 Contenuto</h2>
+  <div class="bg-white rounded-xl border shadow-sm p-6">
+    <h1 class="text-2xl font-bold mb-4">{{ article.title or '—' }}</h1>
+    {% if article.content %}
+    <div class="prose prose-sm max-w-none text-sm leading-relaxed">
+      {{ article.content | safe }}
+    </div>
+    {% else %}
+    <p class="text-gray-400">Nessun contenuto.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

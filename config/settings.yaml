@@ -1,0 +1,35 @@
+# =============================================================================
+# HerbaMarketer — Global settings
+# =============================================================================
+# All secrets stay in .env — only non-sensitive config here.
+# =============================================================================
+
+scheduler:
+  email_job_interval_days: 15
+  article_job_interval_days: 15
+  keyword_research_interval_days: 30
+
+content:
+  email_1:
+    min_words: 300
+    max_words: 400
+  email_2:
+    min_words: 350
+    max_words: 450
+  article:
+    min_words: 1500
+    max_words: 1800
+
+validator:
+  min_score_to_pass: 70
+  max_regeneration_attempts: 3
+
+publishers:
+  mautic_delay_seconds: 1      # delay between consecutive Mautic API calls
+  wordpress_delay_seconds: 1   # delay between consecutive WP API calls
+  retry_attempts: 3
+  retry_wait_seconds: 5
+
+logging:
+  level: "INFO"
+  format: "json"               # structlog JSON output

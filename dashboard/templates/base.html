@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}HerbaMarketer{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            herba: { DEFAULT: '#00A652', dark: '#007A3D', light: '#E6F7EE' }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen">
+
+  <!-- Navbar -->
+  <nav class="bg-herba text-white shadow-md">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+      <a href="/" class="font-bold text-xl tracking-tight">🌿 HerbaMarketer</a>
+      <div class="flex gap-6 text-sm font-medium">
+        <a href="/"       class="hover:text-herba-light transition">Overview</a>
+        <a href="/topics" class="hover:text-herba-light transition">Topics</a>
+        <a href="/logs"   class="hover:text-herba-light transition">Log</a>
+        <a href="/config" class="hover:text-herba-light transition">Config</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Page content -->
+  <main class="max-w-7xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-gray-200 mt-16 py-4 text-center text-xs text-gray-400">
+    HerbaMarketer Dashboard · {% block footer_extra %}{% endblock %}
+  </footer>
+
+</body>
+</html>

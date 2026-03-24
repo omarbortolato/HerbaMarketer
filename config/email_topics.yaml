@@ -1,0 +1,31 @@
+# =============================================================================
+# HerbaMarketer — Email topic backlog
+# =============================================================================
+# These are seed topics loaded into content_topics at first run.
+# Manage the live backlog via Telegram bot or dashboard.
+# =============================================================================
+
+topics:
+  - title: "Colazione proteica: come iniziare la giornata con energia"
+    source: "manual"
+    priority: 8
+
+  - title: "Come perdere peso senza rinunciare al gusto"
+    source: "manual"
+    priority: 7
+
+  - title: "Controllo del peso durante le feste"
+    source: "manual"
+    priority: 6
+
+  - title: "Integratori e sport: cosa prendere e quando"
+    source: "manual"
+    priority: 6
+
+  - title: "Come gestire la stanchezza cronica con la nutrizione"
+    source: "manual"
+    priority: 5
+
+  - title: "Idratazione e performance fisica"
+    source: "manual"
+    priority: 5

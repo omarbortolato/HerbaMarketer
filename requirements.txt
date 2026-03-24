@@ -1,0 +1,46 @@
+# =============================================================================
+# HerbaMarketer — Python dependencies
+# Python 3.11+
+# =============================================================================
+
+# --- Core ---
+anthropic==0.40.0
+pydantic==2.9.2
+python-dotenv==1.0.1
+pyyaml==6.0.2
+structlog==24.4.0
+
+# --- Database ---
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg2-binary==2.9.10    # PostgreSQL driver (production)
+aiosqlite==0.20.0          # SQLite async (development)
+
+# --- HTTP ---
+httpx==0.28.0
+tenacity==9.0.0            # retry logic
+
+# --- Scheduler ---
+apscheduler==3.10.4
+
+# --- Telegram ---
+python-telegram-bot==21.9
+
+# --- Web Dashboard ---
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
+jinja2==3.1.4
+
+# --- Testing ---
+pytest==8.3.4
+pytest-asyncio==0.24.0
+pytest-mock==3.14.0
+
+# --- Web scraping ---
+beautifulsoup4==4.12.3
+
+# --- Image generation ---
+openai==1.57.2                     # DALL-E 3 (optional — set OPENAI_API_KEY)
+
+# --- Dev utilities ---
+python-multipart==0.0.18

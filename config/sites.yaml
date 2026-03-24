@@ -1,0 +1,107 @@
+# =============================================================================
+# HerbaMarketer — Sites configuration
+# =============================================================================
+# To add a new site: add a new entry here. No code changes required.
+# wp_user_env / wp_password_env reference the .env variable names.
+# Footer links (preferred_customer_url, distributor_url) are injected into
+# every generated email — never hardcoded in the agent.
+# =============================================================================
+
+sites:
+
+  herbago_it:
+    url: "https://herbago.it"
+    language: "it"
+    locale: "it-IT"
+    platform: "mautic"
+    mautic_campaign_id: 4
+    email_prefix: "ITA"
+    wp_api_url: "https://www.herbago.it/wp-json/wp/v2"
+    wp_user_env: "WP_HERBAGO_IT_USER"
+    wp_password_env: "WP_HERBAGO_IT_APP_PASSWORD"
+    preferred_customer_url: "https://www.hlifeclienteprivilegiato.it/"
+    distributor_url: "https://www.hl-distributor.com/it/"
+    active: true
+
+  herbago_fr:
+    url: "https://herbago.fr"
+    language: "fr"
+    locale: "fr-FR"
+    platform: "mautic"
+    mautic_campaign_id: 5
+    email_prefix: "FR"
+    wp_api_url: "https://herbago.fr/wp-json/wp/v2"
+    wp_user_env: "WP_HERBAGO_FR_USER"
+    wp_password_env: "WP_HERBAGO_FR_APP_PASSWORD"
+    preferred_customer_url: "https://www.hlifepreferredcustomer.com/fr/"
+    distributor_url: "https://www.hl-distributor.com/fr/"
+    active: true
+
+  herbago_de:
+    url: "https://herbago.de"
+    language: "de"
+    locale: "de-DE"
+    platform: "mautic"
+    mautic_campaign_id: 6
+    email_prefix: "DE"
+    wp_api_url: "https://www.herbago.de/wp-json/wp/v2"
+    wp_user_env: "WP_HERBAGO_DE_USER"
+    wp_password_env: "WP_HERBAGO_DE_APP_PASSWORD"
+    preferred_customer_url: "https://www.hlifepreferredcustomer.com/de/"
+    distributor_url: "https://www.hl-distributor.com/de/"
+    active: true
+
+  herbago_net:
+    url: "https://herbago.net"
+    language: "en"
+    locale: "en-IE"
+    platform: "mautic"
+    mautic_campaign_id: 7
+    email_prefix: "EN_IE"
+    wp_api_url: "https://www.herbago.net/wp-json/wp/v2"
+    wp_user_env: "WP_HERBAGO_NET_USER"
+    wp_password_env: "WP_HERBAGO_NET_APP_PASSWORD"
+    preferred_customer_url: "https://www.hlifepreferredcustomer.com/en/"
+    distributor_url: "https://www.hl-distributor.com/en/"
+    active: true
+
+  herbago_co_uk:
+    url: "https://herbago.co.uk"
+    language: "en"
+    locale: "en-GB"
+    platform: "mautic"
+    mautic_campaign_id: 8
+    email_prefix: "EN_UK"
+    wp_api_url: "https://www.herbago.co.uk/wp-json/wp/v2"
+    wp_user_env: "WP_HERBAGO_CO_UK_USER"
+    wp_password_env: "WP_HERBAGO_CO_UK_APP_PASSWORD"
+    preferred_customer_url: "https://www.hlifepreferredcustomer.com/en/"
+    distributor_url: "https://www.hl-distributor.com/en/"
+    active: true
+
+  hlifeus_com:
+    url: "https://hlifeus.com"
+    language: "en"
+    locale: "en-US"
+    platform: "mautic"
+    mautic_campaign_id: 9
+    email_prefix: "EN_US"
+    wp_api_url: "https://hlifeus.com/wp-json/wp/v2"
+    wp_user_env: "WP_HLIFEUS_USER"
+    wp_password_env: "WP_HLIFEUS_APP_PASSWORD"
+    preferred_customer_url: "https://www.hlifepreferredcustomer.com/en/"
+    distributor_url: "https://www.hl-distributor.com/en/"
+    active: true
+
+  herbashop_it:
+    url: "https://herbashop.it"
+    language: "it"
+    locale: "it-IT"
+    platform: "brevo"
+    brevo_list_id: 9
+    wp_api_url: "https://herbashop.it/wp-json/wp/v2"
+    wp_user_env: "WP_HERBASHOP_IT_USER"
+    wp_password_env: "WP_HERBASHOP_IT_APP_PASSWORD"
+    preferred_customer_url: "https://www.hlifeclienteprivilegiato.it/"
+    distributor_url: "https://www.hl-distributor.com/it/"
+    active: true

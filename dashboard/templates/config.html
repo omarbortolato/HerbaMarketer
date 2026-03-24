@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Config — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">Configurazione Siti</h1>
+  <span class="text-xs text-gray-400 bg-gray-100 rounded-full px-3 py-1">Read-only — modifica su config/sites.yaml</span>
+</div>
+
+<div class="space-y-4">
+  {% for site in sites %}
+  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-4 border-b bg-gray-50">
+      <div class="flex items-center gap-3">
+        <span class="font-semibold">{{ site.slug }}</span>
+        <span class="text-xs text-gray-500">{{ site.language }} / {{ site.locale }}</span>
+        {% if not site.active %}
+        <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs">inattivo</span>
+        {% endif %}
+      </div>
+      <a href="{{ site.url }}" target="_blank"
+         class="text-herba text-sm hover:underline">{{ site.url }} ↗</a>
+    </div>
+    <div class="px-5 py-4 grid grid-cols-2 md:grid-cols-3 gap-x-8 gap-y-2 text-sm">
+      <div>
+        <span class="text-xs text-gray-400 block">Piattaforma</span>
+        <span class="font-medium">{{ site.platform }}</span>
+      </div>
+      {% if site.mautic_campaign_id %}
+      <div>
+        <span class="text-xs text-gray-400 block">Mautic Campaign ID</span>
+        <span class="font-medium">{{ site.mautic_campaign_id }}</span>
+      </div>
+      {% endif %}
+      {% if site.email_prefix %}
+      <div>
+        <span class="text-xs text-gray-400 block">Email Prefix</span>
+        <span class="font-mono text-sm bg-gray-100 px-2 py-0.5 rounded">{{ site.email_prefix }}</span>
+      </div>
+      {% endif %}
+      {% if site.brevo_list_id %}
+      <div>
+        <span class="text-xs text-gray-400 block">Brevo List ID</span>
+        <span class="font-medium">{{ site.brevo_list_id }}</span>
+      </div>
+      {% endif %}
+      {% if site.wp_api_url %}
+      <div class="col-span-2">
+        <span class="text-xs text-gray-400 block">WP API URL</span>
+        <span class="text-gray-600 text-xs">{{ site.wp_api_url }}</span>
+      </div>
+      {% endif %}
+      {% if site.preferred_customer_url %}
+      <div class="col-span-2">
+        <span class="text-xs text-gray-400 block">Cliente Privilegiato URL</span>
+        <a href="{{ site.preferred_customer_url }}" target="_blank"
+           class="text-herba text-xs hover:underline">{{ site.preferred_customer_url }}</a>
+      </div>
+      {% endif %}
+      {% if site.distributor_url %}
+      <div class="col-span-2">
+        <span class="text-xs text-gray-400 block">Distributore URL</span>
+        <a href="{{ site.distributor_url }}" target="_blank"
+           class="text-herba text-xs hover:underline">{{ site.distributor_url }}</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

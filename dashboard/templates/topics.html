@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}Topics — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">Backlog Topics</h1>
+  <span class="text-sm text-gray-400">{{ topics | length }} risultati</span>
+</div>
+
+<!-- Add topic form -->
+<div class="bg-white rounded-xl border shadow-sm p-5 mb-6">
+  <h2 class="font-semibold mb-3 text-sm text-gray-600 uppercase tracking-wide">Aggiungi topic manuale</h2>
+  <form method="POST" action="/topics/add" class="flex gap-3 items-end flex-wrap">
+    <div class="flex-1 min-w-64">
+      <label class="block text-xs text-gray-500 mb-1">Argomento</label>
+      <input type="text" name="title" required placeholder="es. Colazione proteica e metabolismo"
+             class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">Priorità (1-10)</label>
+      <input type="number" name="priority" value="5" min="1" max="10"
+             class="w-20 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+    </div>
+    <button type="submit"
+            class="bg-herba text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-herba-dark transition">
+      + Aggiungi
+    </button>
+  </form>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-xl border shadow-sm p-4 mb-5 flex gap-4 flex-wrap items-center">
+  <span class="text-xs text-gray-500 font-medium uppercase">Filtra:</span>
+
+  <a href="/topics" class="text-xs px-3 py-1 rounded-full border {% if not filter_status and not filter_source %}bg-herba text-white border-herba{% else %}text-gray-600 hover:border-herba{% endif %}">
+    Tutti
+  </a>
+
+  {% for s in statuses %}
+  <a href="/topics?status={{ s }}{% if filter_source %}&source={{ filter_source }}{% endif %}"
+     class="text-xs px-3 py-1 rounded-full border {% if filter_status == s %}bg-herba text-white border-herba{% else %}text-gray-600 hover:border-herba{% endif %}">
+    {{ s }}
+  </a>
+  {% endfor %}
+
+  <span class="text-gray-200">|</span>
+
+  {% for src in sources %}
+  <a href="/topics?source={{ src }}{% if filter_status %}&status={{ filter_status }}{% endif %}"
+     class="text-xs px-3 py-1 rounded-full border {% if filter_source == src %}bg-herba text-white border-herba{% else %}text-gray-600 hover:border-herba{% endif %}">
+    {{ src }}
+  </a>
+  {% endfor %}
+</div>
+
+<!-- Topics table -->
+{% if topics %}
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-3 text-left w-8">ID</th>
+        <th class="px-4 py-3 text-left w-8">P</th>
+        <th class="px-4 py-3 text-left">Titolo</th>
+        <th class="px-4 py-3 text-left">Fonte</th>
+        <th class="px-4 py-3 text-left">Stato</th>
+        <th class="px-4 py-3 text-left">Data</th>
+        <th class="px-4 py-3 text-left">Azioni</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for topic in topics %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-3 text-gray-400 text-xs">#{{ topic.id }}</td>
+        <td class="px-4 py-3 text-center">
+          <span class="text-xs font-bold {% if topic.priority >= 8 %}text-red-500{% elif topic.priority >= 5 %}text-yellow-500{% else %}text-gray-400{% endif %}">
+            {{ topic.priority }}
+          </span>
+        </td>
+        <td class="px-4 py-3 font-medium max-w-xs">
+          {{ topic.title }}
+          {% if topic.source_detail %}
+          <div class="text-xs text-gray-400 truncate max-w-xs mt-0.5">{{ topic.source_detail }}</div>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-500">{{ topic.source }}</td>
+        <td class="px-4 py-3">
+          {% if topic.status == 'approved' %}
+            <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">approvato</span>
+          {% elif topic.status == 'pending' %}
+            <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs">pending</span>
+          {% elif topic.status == 'done' %}
+            <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs">fatto</span>
+          {% elif topic.status == 'in_progress' %}
+            <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs">in corso</span>
+          {% else %}
+            <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs">{{ topic.status }}</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-400">
+          {{ topic.created_at.strftime('%d/%m/%Y') if topic.created_at else '—' }}
+        </td>
+        <td class="px-4 py-3">
+          <div class="flex gap-2">
+            {% if topic.status == 'pending' %}
+            <form method="POST" action="/topics/{{ topic.id }}/approve" class="inline">
+              <button type="submit"
+                      class="text-xs px-2 py-1 bg-herba text-white rounded hover:bg-herba-dark transition">
+                ✓ Approva
+              </button>
+            </form>
+            <form method="POST" action="/topics/{{ topic.id }}/reject" class="inline">
+              <button type="submit"
+                      class="text-xs px-2 py-1 border border-red-300 text-red-500 rounded hover:bg-red-50 transition">
+                ✗ Rigetta
+              </button>
+            </form>
+            {% elif topic.status == 'approved' %}
+            <form method="POST" action="/topics/{{ topic.id }}/reject" class="inline">
+              <button type="submit"
+                      class="text-xs px-2 py-1 border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition">
+                Annulla
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-xl border shadow-sm p-12 text-center text-gray-400">
+  Nessun topic trovato con questi filtri.
+</div>
+{% endif %}
+{% endblock %}

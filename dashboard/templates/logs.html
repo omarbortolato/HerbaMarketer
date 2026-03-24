@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}Log — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">Publish Log</h1>
+  <span class="text-sm text-gray-400">{{ logs | length }} voci (ultime 100)</span>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-xl border shadow-sm p-4 mb-5 flex gap-4 flex-wrap items-center">
+  <span class="text-xs text-gray-500 font-medium uppercase">Filtra:</span>
+
+  <a href="/logs" class="text-xs px-3 py-1 rounded-full border {% if not filter_site and not filter_action and not filter_entity %}bg-herba text-white border-herba{% else %}text-gray-600 hover:border-herba{% endif %}">
+    Tutti
+  </a>
+
+  <!-- Sites -->
+  {% for site in active_sites %}
+  <a href="/logs?site_slug={{ site.slug }}{% if filter_action %}&action={{ filter_action }}{% endif %}{% if filter_entity %}&entity_type={{ filter_entity }}{% endif %}"
+     class="text-xs px-3 py-1 rounded-full border {% if filter_site == site.slug %}bg-herba text-white border-herba{% else %}text-gray-600 hover:border-herba{% endif %}">
+    {{ site.slug }}
+  </a>
+  {% endfor %}
+
+  <span class="text-gray-200">|</span>
+
+  <!-- Actions -->
+  {% for act in ['published', 'failed', 'rejected'] %}
+  <a href="/logs?action={{ act }}{% if filter_site %}&site_slug={{ filter_site }}{% endif %}"
+     class="text-xs px-3 py-1 rounded-full border {% if filter_action == act %}bg-herba text-white border-herba{% else %}text-gray-600 hover:border-herba{% endif %}">
+    {{ act }}
+  </a>
+  {% endfor %}
+
+  <span class="text-gray-200">|</span>
+
+  <!-- Entity types -->
+  {% for et in ['email_pair', 'article'] %}
+  <a href="/logs?entity_type={{ et }}{% if filter_site %}&site_slug={{ filter_site }}{% endif %}"
+     class="text-xs px-3 py-1 rounded-full border {% if filter_entity == et %}bg-herba text-white border-herba{% else %}text-gray-600 hover:border-herba{% endif %}">
+    {{ et }}
+  </a>
+  {% endfor %}
+</div>
+
+{% if logs %}
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-3 text-left">Data</th>
+        <th class="px-4 py-3 text-left">Sito</th>
+        <th class="px-4 py-3 text-left">Tipo</th>
+        <th class="px-4 py-3 text-left">Entità</th>
+        <th class="px-4 py-3 text-left">Azione</th>
+        <th class="px-4 py-3 text-left">Dettaglio</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for log in logs %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+          {{ log.created_at.strftime('%d/%m %H:%M') if log.created_at else '—' }}
+        </td>
+        <td class="px-4 py-3 text-xs">
+          {% if log.site_id and log.site_id in site_map %}
+          <a href="/sites/{{ site_map[log.site_id] }}" class="text-herba hover:underline">
+            {{ site_map[log.site_id] }}
+          </a>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-500">{{ log.entity_type }}</td>
+        <td class="px-4 py-3 text-xs text-gray-500">
+          {% if log.entity_type == 'email_pair' %}
+          <a href="/content/email/{{ log.entity_id }}" class="text-herba hover:underline">#{{ log.entity_id }}</a>
+          {% elif log.entity_type == 'article' %}
+          <a href="/content/article/{{ log.entity_id }}" class="text-herba hover:underline">#{{ log.entity_id }}</a>
+          {% else %}
+          #{{ log.entity_id }}
+          {% endif %}
+        </td>
+        <td class="px-4 py-3">
+          {% if log.action == 'published' %}
+            <span class="text-green-600 font-medium text-xs">✓ pubblicato</span>
+          {% elif log.action == 'failed' %}
+            <span class="text-red-500 font-medium text-xs">✗ fallito</span>
+          {% elif log.action == 'rejected' %}
+            <span class="text-yellow-600 font-medium text-xs">— rifiutato</span>
+          {% else %}
+            <span class="text-gray-500 text-xs">{{ log.action }}</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-500 max-w-sm">
+          <span class="block truncate" title="{{ log.detail or '' }}">{{ log.detail or '—' }}</span>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-xl border shadow-sm p-12 text-center text-gray-400">
+  Nessun log trovato con questi filtri.
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(alembic init:*)",
+      "Bash(DATABASE_URL=sqlite:///./herbamarketer.db alembic revision --autogenerate -m \"initial schema\")",
+      "Bash(DATABASE_URL=sqlite:///./herbamarketer.db alembic upgrade head)",
+      "Bash(python -c \":*)",
+      "Bash(python3 -c \":*)",
+      "Bash(python3 -m pytest tests/test_agents.py -v)",
+      "Bash(python3 -m pytest tests/test_agents.py -q)",
+      "Bash(python3 -c \"import agents.translator_agent; print\\(''''translator_agent OK''''\\)\")",
+      "Bash(python3 -c \"import publishers.mautic; print\\(''''mautic OK''''\\)\")",
+      "Bash(python3 -c \"import core.telegram_bot; print\\(''''telegram_bot OK''''\\)\")",
+      "Bash(python3 -c \"import core.scheduler; print\\(''''scheduler OK''''\\)\")",
+      "Bash(python3 tests/e2e_email_test.py)",
+      "Bash(python3:*)",
+      "Bash(python -m pytest tests/test_publishers.py -v)",
+      "Bash(pip3 install:*)"
+    ]
+  }
+}
