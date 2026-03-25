@@ -288,42 +288,95 @@ Il sistema è live su Coolify. Prima di considerarlo pienamente operativo:
 
 ---
 
-## Roadmap feature (fase successiva)
+## Roadmap feature
 
-### Feature 1 — Importazione contenuti esistenti (PRIORITÀ ALTA)
-**Obiettivo**: scaricare dalla sorgente (WP/Mautic) gli articoli e le email già esistenti e mostrarli in dashboard con status e dettaglio. Così la dashboard diventa l'unico centro di controllo per tutti i contenuti, non solo quelli generati da HerbaMarketer.
+---
 
-**Implementazione proposta**:
-- `sync/wp_importer.py` — legge `GET /wp-json/wp/v2/posts` per ogni sito, crea o aggiorna record `Article` nel DB con `source="imported"`
-- `sync/mautic_importer.py` — legge `GET /api/emails` su Mautic, crea o aggiorna record `EmailPair` nel DB con `source="imported"`
-- Job schedulato mensile o comando Telegram `/sync` per aggiornare
-- Dashboard mostra tutto: contenuti importati + contenuti generati, con badge "importato" vs "generato"
-- Deduplicazione per `wp_post_id` / `mautic_email_id`
+### FASE 2 — Centro di controllo contenuti (prossima)
 
-**Valore**: visibilità completa su 7 siti da un unico punto senza accedere a WP e Mautic separatamente.
+#### Feature 2.1 — Importazione contenuti esistenti (PRIORITÀ ALTA)
+**Obiettivo**: scaricare da WP e Mautic tutti gli articoli e le email già esistenti e mostrarli in dashboard. La dashboard diventa l'unico centro di controllo per tutti i contenuti dei 7 siti, non solo quelli generati da HerbaMarketer.
 
-### Feature 2 — Piano editoriale / calendario
-**Obiettivo**: vista timeline che mostra cosa è già uscito e cosa è in coda.
-- Calendario mensile con email e articoli pubblicati per data
-- Topic in coda con data prevista di pubblicazione stimata
-- Warning deduplicazione: evidenzia se un topic simile è già stato trattato
+**Implementazione**:
+- `sync/wp_importer.py` — `GET /wp-json/wp/v2/posts?per_page=100` per ogni sito → crea/aggiorna record `Article` nel DB con `source="imported"`
+- `sync/mautic_importer.py` — `GET /api/emails` su Mautic → crea/aggiorna record `EmailPair` con `source="imported"`
+- Deduplicazione per `wp_post_id` / `mautic_email_id` (idempotente)
+- Trigger: comando Telegram `/sync` + job mensile automatico
+- Dashboard: badge "importato" vs "generato da AI", filtro per source
 
-### Feature 3 — Force publish dalla dashboard
-**Obiettivo**: poter pubblicare contenuti direttamente dalla dashboard senza passare per Telegram.
-- Bottone "Pubblica ora" su EmailPair in bozza → chiama Mautic/Brevo API
-- Bottone "Approva e pubblica" su Article in bozza → chiama WP API `status: publish`
+#### Feature 2.2 — Check deduplicazione topic (IMPORTANTE)
+**Obiettivo**: prima di generare un nuovo articolo, verificare che non esista già un contenuto sullo stesso argomento (sia tra i generati che tra gli importati).
 
-### Feature 4 — Business agent (report settimanale)
-**Obiettivo**: agente che legge gli ordini da Google Sheet e produce un report settimanale.
-- Numero ordini per sito vs settimana precedente
-- Correlazione con email/articoli pubblicati nella settimana
-- Inviato ogni lunedì su Telegram
+**Implementazione**:
+- Confronto semantico via Claude tra il topic in coda e i titoli degli articoli esistenti nel DB
+- Fallback: keyword match semplice se Claude non è necessario
+- Warning su Telegram e dashboard: "⚠️ Argomento simile già trattato: [titolo] ([data])"
+- Omar decide se procedere ugualmente o scartare il topic
 
-### Feature 5 — Agente SEO avanzato
-**Obiettivo**: analisi competitor + audit link corrotti.
-- DataForSEO competitor analysis per ogni sito
-- Scansione articoli pubblicati per link rotti
-- Proposta di articoli da aggiornare (contenuto datato)
+#### Feature 2.3 — Piano editoriale su Notion
+**Obiettivo**: calendario editoriale integrato su Notion dove vedere tutto sotto controllo — cosa è uscito, cosa è in coda, cosa è pianificato.
+
+**Implementazione**:
+- Database Notion con colonne: Titolo, Tipo (email/articolo), Sito, Data pubblicazione, Status, Source (AI/importato), Link
+- Sync automatico: ogni volta che HerbaMarketer pubblica un contenuto → aggiunge riga su Notion via API
+- Importazione: sync da WP/Mautic aggiunge anche i contenuti esistenti su Notion
+- Vista calendario Notion per avere la timeline visiva
+- Notion come piano editoriale condiviso (Omar + Emiliano)
+
+#### Feature 2.4 — Force publish dalla dashboard
+**Obiettivo**: pubblicare contenuti direttamente dalla dashboard senza passare per Telegram.
+- Bottone "Pubblica ora" su EmailPair → chiama Mautic/Brevo API
+- Bottone "Approva e pubblica" su Article → chiama WP API `status: publish`
+
+---
+
+### FASE 3 — SEO Health & Competitor Intelligence
+
+**Obiettivo**: monitoraggio continuo della salute SEO di ogni sito e identificazione opportunità per nuovi articoli. Analisi competitor per capire cosa pubblicano e dove siamo posizionati.
+
+#### Feature 3.1 — SEO Health Check (mensile per sito)
+- **Audit articoli esistenti**: controllare articoli pubblicati per link rotti, contenuto datato (>12 mesi), mancanza meta SEO
+- **Ranking check**: via DataForSEO, monitorare posizioni delle keyword target per ogni sito
+- **Opportunità keyword**: keyword con volume > 500, difficulty < 40, per cui non abbiamo ancora un articolo
+- **Report Telegram**: ogni mese, riepilogo per sito con semaforo (verde = sano, rosso = intervento necessario)
+- Dashboard: nuova sezione `/seo` con health score per sito
+
+#### Feature 3.2 — Analisi Competitor
+- Identificare i principali 3-5 competitor per ogni mercato (IT, FR, DE, EN)
+- Monitorare i loro articoli di punta via DataForSEO competitor research
+- Identificare gap: argomenti che i competitor trattano e noi no
+- Proporre automaticamente topic basati sui gap → ContentTopic (source="competitor_gap")
+- Report mensile su Telegram con top opportunità
+
+#### Feature 3.3 — Content Refresh Agent
+- Identificare articoli pubblicati da >12 mesi con calo di posizione
+- Generare versione aggiornata con Claude (stessa struttura, dati aggiornati)
+- Proporre su Telegram: "Articolo da aggiornare: [titolo] — posizione calata da X a Y"
+
+---
+
+### FASE 4 — Google Ads & Business Intelligence
+
+**Obiettivo**: integrare i dati di performance pubblicitaria e di business per avere un quadro completo del ROI e suggerire ottimizzazioni.
+
+#### Feature 4.1 — Google Ads Integration
+- Connessione Google Ads API per ogni account (IT, FR, DE, EN, US)
+- Dati: impression, click, costo, conversioni per campagna e keyword
+- Correlazione con contenuti pubblicati: articoli e email → impatto sulle conversioni
+- Report settimanale automatico su Telegram ogni lunedì
+
+#### Feature 4.2 — Business Report Agent
+- Lettura ordini da Google Sheet (già usato da Omar) via Google Sheets API
+- KPI settimanali: ordini per sito, revenue, AOV (Average Order Value)
+- Trend vs settimana precedente e vs stesso periodo anno scorso
+- Correlazione contenuti → ordini: "questa settimana articolo su [topic] → +X ordini su herbago.it"
+- Report ogni lunedì mattina su Telegram + aggiornamento Notion
+
+#### Feature 4.3 — Suggerimenti ottimizzazione campagne
+- Agente Claude che analizza i dati Google Ads + contenuti pubblicati
+- Suggerisce: keyword da aggiungere/togliere, budget da riallocare, annunci da riscrivere
+- Output: report mensile con priorità di intervento
+- Non automatizza le modifiche — solo suggerisce, Omar approva
 
 ---
 
