@@ -44,6 +44,7 @@ app = FastAPI(title="HerbaMarketer Dashboard", version="1.0.0")
 _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
 
+_STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 
