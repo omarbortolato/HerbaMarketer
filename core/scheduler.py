@@ -488,20 +488,17 @@ def _process_article_for_sites(
                 )
                 continue
 
-            # Product availability check: if translated content references
-            # a product, verify it exists in target site's sitemap
+            # Product availability check: look up product URL from sitemap.
+            # Non-fatal: if not found, fall back to site root URL.
             product_url = find_product_url("Formula 1 Herbalife", site_cfg)
             if product_url is None:
+                product_url = site_cfg.url
                 log.warning(
-                    "product_not_available_for_site",
+                    "product_not_available_for_site_using_fallback",
                     site=site_cfg.slug,
                     product="Formula 1 Herbalife",
+                    fallback=product_url,
                 )
-                notify_error(
-                    f"Articolo {site_cfg.slug}",
-                    "Prodotto non disponibile nel sito — articolo saltato",
-                )
-                continue
 
             # Save draft record to DB
             article_db = Article(

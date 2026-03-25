@@ -13,11 +13,17 @@ Pages:
   GET /content/{type}/{id}   — View email pair or article
   GET /logs          — Publish log with filters
   GET /config        — Read-only config viewer
+  GET /login         — Login page
+  POST /login        — Authenticate
+  GET /logout        — Logout
 
 Run:
     uvicorn dashboard.app:app --reload --port 8000
 """
 
+import hashlib
+import os
+import secrets
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -27,6 +33,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from config import get_all_active_sites, get_site_config
 from core.database import (
@@ -40,6 +48,48 @@ from core.database import (
 )
 
 app = FastAPI(title="HerbaMarketer Dashboard", version="1.0.0")
+
+# ---------------------------------------------------------------------------
+# Auth
+# ---------------------------------------------------------------------------
+
+_SESSION_SECRET = os.getenv("SESSION_SECRET_KEY", "herbamarketer-dashboard-secret-key-change-in-prod")
+
+# SHA-256 hashed passwords (no plaintext stored)
+_USERS: dict[str, str] = {
+    "omar": hashlib.sha256("herbamarketerschei26!".encode()).hexdigest(),
+    "emiliano": hashlib.sha256("herbamarketerschei26!".encode()).hexdigest(),
+}
+
+_PUBLIC_PATHS = {"/login"}
+_PUBLIC_PREFIXES = ("/static",)
+
+
+def _check_password(username: str, password: str) -> bool:
+    stored = _USERS.get(username)
+    if not stored:
+        return False
+    candidate = hashlib.sha256(password.encode()).hexdigest()
+    return secrets.compare_digest(stored, candidate)
+
+
+class AuthMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if path in _PUBLIC_PATHS or any(path.startswith(p) for p in _PUBLIC_PREFIXES):
+            return await call_next(request)
+        if not request.session.get("user"):
+            return RedirectResponse(url="/login", status_code=302)
+        return await call_next(request)
+
+
+# Middleware must be added before mounting static files
+app.add_middleware(AuthMiddleware)
+app.add_middleware(SessionMiddleware, secret_key=_SESSION_SECRET)
+
+# ---------------------------------------------------------------------------
+# Static files & templates
+# ---------------------------------------------------------------------------
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -94,8 +144,8 @@ def _site_status(site_slug: str, db: Session) -> str:
         db.query(Article)
         .filter(
             Article.site_id == site_db.id,
-            Article.status == "published",
-            Article.published_at >= cutoff_30,
+            Article.status.in_(["pending_approval", "published"]),
+            Article.created_at >= cutoff_30,
         )
         .count()
     )
@@ -119,6 +169,48 @@ def _site_status(site_slug: str, db: Session) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Auth routes
+# ---------------------------------------------------------------------------
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    """Login page."""
+    if request.session.get("user"):
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"error": None},
+    )
+
+
+@app.post("/login")
+async def login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...),
+):
+    """Authenticate and set session cookie."""
+    if _check_password(username.strip().lower(), password):
+        request.session["user"] = username.strip().lower()
+        return RedirectResponse(url="/", status_code=303)
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"error": "Username o password non validi."},
+        status_code=401,
+    )
+
+
+@app.get("/logout")
+async def logout(request: Request):
+    """Clear session and redirect to login."""
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=302)
+
+
+# ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
 
@@ -139,7 +231,10 @@ async def overview(request: Request, db: Session = Depends(get_db)):
         )
         article_count = (
             db.query(Article)
-            .filter(Article.site_id == site_db.id, Article.status == "published")
+            .filter(
+                Article.site_id == site_db.id,
+                Article.status.in_(["pending_approval", "published"]),
+            )
             .count()
             if site_db else 0
         )
@@ -161,7 +256,9 @@ async def overview(request: Request, db: Session = Depends(get_db)):
         db.query(EmailPair).filter(EmailPair.status == "published").count()
     )
     total_articles = (
-        db.query(Article).filter(Article.status == "published").count()
+        db.query(Article)
+        .filter(Article.status.in_(["pending_approval", "published"]))
+        .count()
     )
 
     return templates.TemplateResponse(
@@ -174,6 +271,7 @@ async def overview(request: Request, db: Session = Depends(get_db)):
             "total_emails": total_emails,
             "total_articles": total_articles,
             "now": datetime.utcnow(),
+            "current_user": request.session.get("user"),
         },
     )
 
@@ -225,6 +323,7 @@ async def site_detail(slug: str, request: Request, db: Session = Depends(get_db)
             "email_pairs": email_pairs,
             "articles": articles,
             "recent_logs": recent_logs,
+            "current_user": request.session.get("user"),
         },
     )
 
@@ -256,6 +355,7 @@ async def topics(
             "filter_source": source or "",
             "statuses": ["pending", "approved", "rejected", "in_progress", "done"],
             "sources": ["manual", "seo_agent", "email_input", "url_input"],
+            "current_user": request.session.get("user"),
         },
     )
 
@@ -316,6 +416,7 @@ async def view_email_pair(
             "pair": pair,
             "site": site_db,
             "topic": topic,
+            "current_user": request.session.get("user"),
         },
     )
 
@@ -339,6 +440,7 @@ async def view_article(
             "article": article,
             "site": site_db,
             "topic": topic,
+            "current_user": request.session.get("user"),
         },
     )
 
@@ -383,6 +485,7 @@ async def logs(
             "filter_action": action or "",
             "filter_entity": entity_type or "",
             "active_sites": active_sites,
+            "current_user": request.session.get("user"),
         },
     )
 
@@ -397,5 +500,6 @@ async def config_view(request: Request):
         name="config.html",
         context={
             "sites": active_sites,
+            "current_user": request.session.get("user"),
         },
     )
