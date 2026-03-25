@@ -1,5 +1,5 @@
 # HerbaMarketer — Stato del Progetto
-> Aggiornato: 24 marzo 2026 — dopo test end-to-end completati
+> Aggiornato: 25 marzo 2026 — sistema live su Coolify, login dashboard aggiunto
 
 ---
 
@@ -7,14 +7,16 @@
 
 HerbaMarketer è un sistema di marketing automation che genera, traduce e pubblica autonomamente contenuti (email di nurturing + articoli SEO) su 7 siti Herbalife multilingua. Supervisione umana via Telegram e dashboard web.
 
-**Stato attuale: sistema testato end-to-end e funzionante. Pronto per il deploy su Coolify.**
+**Stato attuale: sistema deployato in produzione su Coolify. Dashboard protetta da login. In attesa di test E2E live.**
 
 | Metrica | Valore |
 |---------|--------|
 | Siti gestiti | 7 (6 Mautic + 1 Brevo) |
-| Email pubblicate (test) | 14 (2 per sito × 7 siti) |
+| Email pubblicate (test locale) | 14 (2 per sito × 7 siti) |
 | Test automatici | 93 (tutti verdi) |
-| Test end-to-end | ✅ completati |
+| Deploy produzione | ✅ Coolify — dashboard.herbago.info |
+| Login dashboard | ✅ omar / emiliano |
+| API keys | ⚠️ Ruotate il 25/03 (esposizione accidentale su GitHub) |
 
 ---
 
@@ -34,11 +36,27 @@ HerbaMarketer è un sistema di marketing automation che genera, traduce e pubbli
 
 ---
 
+## Architettura produzione
+
+```
+GitHub (omarbortolato/HerbaMarketer)
+  └── push → Coolify auto-deploy
+        ├── herbamarketer_db   (PostgreSQL 16)
+        ├── herbamarketer_app  (FastAPI + Uvicorn — dashboard.herbago.info)
+        └── herbamarketer_worker (APScheduler + Telegram bot polling)
+```
+
+- **Deploy**: push su `main` → Coolify auto-deploy
+- **Database**: PostgreSQL su Coolify (migrato da SQLite locale con `migrate_to_postgres.py`)
+- **Dashboard**: `http://dashboard.herbago.info` — login richiesto (omar / emiliano)
+
+---
+
 ## Flusso Email — ogni 15 giorni per tutti i siti
 
 ### Trigger
 - **Automatico**: APScheduler lancia `email_job()` ogni 15 giorni
-- **Manuale**: `python3 test_scheduler_email.py` (o chiamata diretta da codice)
+- **Manuale**: chiamata diretta da script
 
 ### Flusso dettagliato
 ```
@@ -90,7 +108,7 @@ Dopo ogni notifica Telegram, aggiungere manualmente in **Brevo → Automazioni �
 
 ### Trigger
 - **Automatico**: APScheduler lancia `article_job()` ogni 15 giorni
-- **Manuale**: `python3 test_article_job.py`
+- **Manuale**: chiamata diretta da script
 
 ### Flusso dettagliato
 ```
@@ -99,19 +117,19 @@ Dopo ogni notifica Telegram, aggiungere manualmente in **Brevo → Automazioni �
    → Nessun topic: invia su Telegram lista topic pending
      con bottoni inline per selezionare → Omar sceglie → topic → "approved"
 3. Genera articolo IT master (~1700 parole, H3/H4):
-   - Cerca URL prodotto nella sitemap del sito
+   - Cerca URL prodotto nella sitemap del sito (fallback: URL sito root)
    - Genera articolo con CTA bottone verde con URL reale
    - meta_title (max 60 char) + meta_description (max 155 char)
 4. Validator SEO: lunghezza, struttura, keyword, claim
-5. Genera immagine con DALL-E 3 (fallback Ideogram):
+5. Genera immagine con DALL-E 3:
    - Scena lifestyle/natura, no prodotto, no testo
 6. Per ogni sito attivo con wp_api_url:
    a. Traduce articolo nella lingua del sito
-   b. Controlla disponibilità prodotto via sitemap del sito
-      → Prodotto non trovato: skip sito + notifica Telegram
+   b. Cerca URL prodotto nella sitemap del sito
+      → Non trovato: usa URL sito come fallback (NON salta più il sito)
    c. Carica immagine su WP media library
-   d. Pubblica articolo come bozza (status="draft")
-   e. Salva record Article nel DB
+   d. Pubblica articolo come bozza (status="draft" su WP)
+   e. Salva record Article nel DB (status="pending_approval")
 7. Telegram: "Articoli pronti in bozza" con link preview per ogni sito
    + bottoni [Pubblica tutto] [Rigetta tutto]
 8. Se approvato: pubblica tutti i WP draft → status="published"
@@ -165,11 +183,16 @@ oppure: /addtopic <testo> su Telegram
 
 ---
 
-## Dashboard Web — `http://localhost:8001`
+## Dashboard Web — `https://dashboard.herbago.info`
+
+### Accesso
+- **Login richiesto** — utenti: `omar`, `emiliano` (password condivisa)
+- Cookie di sessione firmato (SessionMiddleware)
 
 ### Pagine disponibili
 | URL | Contenuto |
 |-----|-----------|
+| `/login` | Pagina di login |
 | `/` | Overview tutti i siti: semaforo stato, contatori email/articoli |
 | `/sites/{slug}` | Dettaglio sito: ultime 20 email, articoli, log |
 | `/topics` | Backlog topic: filtri per status/source, approva/rigetta inline |
@@ -178,6 +201,7 @@ oppure: /addtopic <testo> su Telegram
 | `/content/article/{id}` | Preview articolo: immagine, meta SEO, contenuto |
 | `/logs` | Publish log: filtri per sito/azione/tipo |
 | `/config` | Config siti read-only |
+| `/logout` | Disconnessione |
 
 ### Semaforo stato sito
 | Colore | Significato |
@@ -186,10 +210,8 @@ oppure: /addtopic <testo> su Telegram
 | 🟡 Giallo | Ultimo contenuto tra 30 e 60 giorni fa |
 | 🔴 Rosso | Nessun contenuto da 60+ giorni O failure recenti (ultimi 7gg) |
 
-### Come avviare
-```bash
-uvicorn dashboard.app:app --reload --port 8001
-```
+### Contatori articoli
+Il counter articoli include sia `pending_approval` (bozze WP, in attesa di approvazione Telegram) che `published` (live su WP). Così il dato è visibile subito dopo la generazione.
 
 ---
 
@@ -205,6 +227,7 @@ uvicorn dashboard.app:app --reload --port 8001
 | `/preview <id>` | Anteprima contenuto |
 | `/publish <article_db_id>` | Forza pubblicazione bozza WP |
 | `/sites` | Stato di ogni sito |
+| `/report` | Report settimanale |
 
 ### Notifiche automatiche
 | Evento | Messaggio |
@@ -214,12 +237,6 @@ uvicorn dashboard.app:app --reload --port 8001
 | Articoli in bozza | Link preview per sito + bottoni Pubblica/Rigetta |
 | Selezione topic articolo | Lista topic pending con bottoni inline |
 | Errore | Contesto + messaggio errore |
-
-### Avvio bot
-```bash
-python3 run_bot.py
-# oppure in produzione: parte automaticamente con lo scheduler
-```
 
 ---
 
@@ -240,36 +257,83 @@ KEYWORD_RESEARCH_INTERVAL_DAYS=30
 
 ---
 
-## Cosa manca / Feature da aggiungere
+## Prossimi passi immediati
 
-### Bug noti
-- [ ] **Articolo non salvato nel DB**: `test_article_job.py` pubblica su WP ma non crea il record `Article` nel DB → il counter dashboard rimane a 0. Da sistemare nello `article_job()` dello scheduler.
+### Test E2E in produzione (priorità alta)
+Il sistema è live su Coolify. Prima di considerarlo pienamente operativo:
 
-### Feature richieste (priorità alta)
+- [ ] **Aggiornare API keys su Coolify** — le chiavi sono state ruotate il 25/03 a causa di esposizione accidentale su GitHub. Aggiornare tutti i secrets in Coolify (Anthropic, Mautic, Brevo, WP, Telegram, DataForSEO, OpenAI)
+- [ ] **Approvare IP Coolify su Brevo** — al primo test, Brevo invierà notifica IP sconosciuto. Approvare una volta sola dall'interfaccia Brevo. L'IP Coolify è fisso, non servirà rifarlo
+- [ ] **Test email job** — aggiungere un topic approvato in produzione e lanciare manualmente `email_job()` (via Telegram `/approve <id>` + attesa run, o trigger diretto)
+- [ ] **Verifica Mautic** — controllare che le email create appaiano nelle campagne corrette su `broadcast.herbago.info`
+- [ ] **Test article job** — approvare topic → verificare che gli articoli vengano pubblicati come bozze WP su tutti e 7 i siti
+- [ ] **Verifica Telegram** — notifiche di bozze ricevute → cliccare "Pubblica tutto" → verificare che gli articoli vadano live su WP
 
-#### 1. Force publish dalla dashboard
-Attualmente non è possibile forzare la pubblicazione di email o articoli dalla dashboard — si può solo approvare/rifiutare topic. Da aggiungere:
-- **Email**: bottone "Pubblica ora" su un EmailPair in bozza → lancia `email_job()` per quel sito
-- **Articolo**: bottone "Pubblica su WP" su un Article in bozza → cambia status WP da draft a publish
+### Procedura test E2E step by step
+```
+1. Verifica login dashboard: https://dashboard.herbago.info
+2. Aggiorna API keys su Coolify → Redeploy
+3. Su Telegram: /addtopic "colazione proteica e shake herbalife"
+4. Su dashboard /topics: Approva topic appena creato
+5. Attendi run scheduler (o triggera manualmente)
+6. Telegram: ricevi notifica IP Brevo → approva su Brevo → ritesta
+7. Verifica:
+   - Dashboard /logs: voci "published" per tutti i siti
+   - Mautic: email nelle campagne
+   - Brevo: template in Marketing → Modelli
+   - WordPress bozze: link preview funzionanti
+8. Telegram: clicca "Pubblica tutto" sugli articoli
+9. Verifica articoli live su ogni sito
+```
 
-#### 2. Piano editoriale integrato
-Il backlog `/topics` mostra solo i topic pianificati. Da aggiungere una vista che integra:
-- Topic pending/approved (cosa è in coda)
-- Email già pubblicate (con soggetti e date)
-- Articoli già pubblicati (con titoli e date)
-- Deduplicazione: warning se un topic simile è già stato trattato
-- Vista calendario/timeline per avere una visione completa di ciò che è già uscito e cosa uscirà
+---
 
-#### 3. Gestione IP Brevo
-Brevo richiede approvazione IP per le chiamate API. In produzione su Coolify, approvare l'IP fisso del server una sola volta. Attualmente ogni cambio di rete richiede una nuova approvazione.
+## Roadmap feature (fase successiva)
 
-### Deployment (prossimo step)
-- [ ] Push su GitHub (repository privato)
-- [ ] Deploy su Coolify con Docker Compose
-- [ ] Configurare variabili d'ambiente come secrets su Coolify
-- [ ] Switchare `DATABASE_URL` da SQLite a PostgreSQL
-- [ ] Approvare IP Coolify su Brevo (una tantum)
-- [ ] Verificare che Mautic sia raggiungibile dall'IP del server Coolify
+### Feature 1 — Importazione contenuti esistenti (PRIORITÀ ALTA)
+**Obiettivo**: scaricare dalla sorgente (WP/Mautic) gli articoli e le email già esistenti e mostrarli in dashboard con status e dettaglio. Così la dashboard diventa l'unico centro di controllo per tutti i contenuti, non solo quelli generati da HerbaMarketer.
+
+**Implementazione proposta**:
+- `sync/wp_importer.py` — legge `GET /wp-json/wp/v2/posts` per ogni sito, crea o aggiorna record `Article` nel DB con `source="imported"`
+- `sync/mautic_importer.py` — legge `GET /api/emails` su Mautic, crea o aggiorna record `EmailPair` nel DB con `source="imported"`
+- Job schedulato mensile o comando Telegram `/sync` per aggiornare
+- Dashboard mostra tutto: contenuti importati + contenuti generati, con badge "importato" vs "generato"
+- Deduplicazione per `wp_post_id` / `mautic_email_id`
+
+**Valore**: visibilità completa su 7 siti da un unico punto senza accedere a WP e Mautic separatamente.
+
+### Feature 2 — Piano editoriale / calendario
+**Obiettivo**: vista timeline che mostra cosa è già uscito e cosa è in coda.
+- Calendario mensile con email e articoli pubblicati per data
+- Topic in coda con data prevista di pubblicazione stimata
+- Warning deduplicazione: evidenzia se un topic simile è già stato trattato
+
+### Feature 3 — Force publish dalla dashboard
+**Obiettivo**: poter pubblicare contenuti direttamente dalla dashboard senza passare per Telegram.
+- Bottone "Pubblica ora" su EmailPair in bozza → chiama Mautic/Brevo API
+- Bottone "Approva e pubblica" su Article in bozza → chiama WP API `status: publish`
+
+### Feature 4 — Business agent (report settimanale)
+**Obiettivo**: agente che legge gli ordini da Google Sheet e produce un report settimanale.
+- Numero ordini per sito vs settimana precedente
+- Correlazione con email/articoli pubblicati nella settimana
+- Inviato ogni lunedì su Telegram
+
+### Feature 5 — Agente SEO avanzato
+**Obiettivo**: analisi competitor + audit link corrotti.
+- DataForSEO competitor analysis per ogni sito
+- Scansione articoli pubblicati per link rotti
+- Proposta di articoli da aggiornare (contenuto datato)
+
+---
+
+## Bug noti / Note tecniche
+
+- **IP Brevo**: ogni nuovo IP richiede approvazione manuale su Brevo. Su Coolify (IP fisso) basta farlo una volta.
+- **WP redirect**: herbago.it, .de, .net, .co.uk reindirizzano a www — già gestito con `follow_redirects=True` e wp_api_url corretti in sites.yaml.
+- **Token Claude per articoli**: `max_tokens=8192` (vs 4096 per email) — necessario per articoli da ~1700 parole in HTML.
+- **Brevo automazione**: i template vanno aggiunti manualmente a Scenario #9 — non è automatizzabile senza rischiare di corrompere la sequenza esistente di 26 email.
+- **SESSION_SECRET_KEY**: aggiungere questa variabile d'ambiente su Coolify per la sicurezza della sessione dashboard (altrimenti usa il default hardcoded).
 
 ---
 
@@ -284,19 +348,13 @@ cp .env.example .env
 # → compila tutte le chiavi API
 
 # 3. Database
-python3 -c "from core.database import create_tables; create_tables()"
+alembic upgrade head
 
 # 4. Dashboard (terminale 1)
 uvicorn dashboard.app:app --reload --port 8001
 
-# 5. Bot Telegram (terminale 2)
-python3 run_bot.py
-
-# 6. Scheduler (terminale 3 — o integrato in produzione)
-python3 -c "from core.scheduler import start_scheduler; import time; start_scheduler(); time.sleep(99999)"
-
-# 7. Test unitari
-python3 -m pytest tests/ -q
+# 5. Worker (terminale 2 — scheduler + bot)
+python3 run_worker.py
 ```
 
 ---
@@ -310,6 +368,8 @@ herbamarketer/
 ├── requirements.txt
 ├── .env / .env.example
 ├── docker-compose.yml + Dockerfile
+├── run_worker.py                    # entry point produzione: scheduler + bot
+├── migrate_to_postgres.py           # migrazione SQLite → PostgreSQL
 │
 ├── config/
 │   ├── __init__.py                  # SiteConfig, get_all_active_sites()
@@ -337,11 +397,12 @@ herbamarketer/
 │
 ├── inputs/
 │   ├── email_ingestor.py            # IMAP Gmail → topic
-│   └── url_ingestor.py             # scraping URL → topic
+│   └── url_ingestor.py              # scraping URL → topic
 │
 ├── dashboard/
-│   ├── app.py                       # FastAPI: 10 route
-│   └── templates/                   # 8 template Jinja2 + TailwindCSS CDN
+│   ├── app.py                       # FastAPI: login + 10 route protette
+│   ├── static/logo.jpg              # favicon
+│   └── templates/                   # 9 template Jinja2 + TailwindCSS CDN
 │
 └── tests/                           # 93 test unitari (tutti verdi)
 ```
@@ -351,6 +412,7 @@ herbamarketer/
 ## Variabili d'ambiente — riepilogo
 
 ```bash
+# ⚠️ RUOTATE IL 25/03/2026 — aggiornare su Coolify
 ANTHROPIC_API_KEY          # Claude API
 TELEGRAM_BOT_TOKEN         # Bot Telegram
 TELEGRAM_CHAT_ID_OMAR      # Chat ID Omar
@@ -362,8 +424,9 @@ BREVO_SENDER_EMAIL         # info@herbashop.it
 WP_*_USER / APP_PASSWORD   # herba-api + Application Password per ogni sito
 DATAFORSEO_LOGIN / PASSWORD # API DataForSEO
 OPENAI_API_KEY             # DALL-E 3
-DATABASE_URL               # SQLite (dev) / PostgreSQL (produzione)
+DATABASE_URL               # PostgreSQL su Coolify
 EMAIL_JOB_INTERVAL_DAYS    # 15
 ARTICLE_JOB_INTERVAL_DAYS  # 15
 KEYWORD_RESEARCH_INTERVAL_DAYS # 30
+SESSION_SECRET_KEY         # segreto per cookie sessione dashboard (aggiungere su Coolify)
 ```
