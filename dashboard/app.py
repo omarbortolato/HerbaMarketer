@@ -333,18 +333,31 @@ async def topics(
     request: Request,
     status: Optional[str] = None,
     source: Optional[str] = None,
+    sort: Optional[str] = "id",
+    order: Optional[str] = "asc",
     db: Session = Depends(get_db),
 ):
-    """Topic backlog with optional filters."""
+    """Topic backlog with optional filters and column sorting."""
     query = db.query(ContentTopic)
     if status:
         query = query.filter(ContentTopic.status == status)
     if source:
         query = query.filter(ContentTopic.source == source)
 
-    topic_list = query.order_by(
-        ContentTopic.priority.desc(), ContentTopic.created_at.desc()
-    ).all()
+    _sort_columns = {
+        "id": ContentTopic.id,
+        "priority": ContentTopic.priority,
+        "status": ContentTopic.status,
+        "source": ContentTopic.source,
+        "created_at": ContentTopic.created_at,
+    }
+    sort_col = _sort_columns.get(sort, ContentTopic.id)
+    if order == "desc":
+        query = query.order_by(sort_col.desc())
+    else:
+        query = query.order_by(sort_col.asc())
+
+    topic_list = query.all()
 
     return templates.TemplateResponse(
         request=request,
@@ -353,6 +366,8 @@ async def topics(
             "topics": topic_list,
             "filter_status": status or "",
             "filter_source": source or "",
+            "sort": sort,
+            "order": order,
             "statuses": ["pending", "approved", "rejected", "in_progress", "done"],
             "sources": ["manual", "seo_agent", "email_input", "url_input"],
             "current_user": request.session.get("user"),

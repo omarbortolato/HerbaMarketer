@@ -54,17 +54,30 @@
 </div>
 
 <!-- Topics table -->
+{% macro sort_url(col) %}{% set next_order = 'desc' if (sort == col and order == 'asc') else 'asc' %}/topics?sort={{ col }}&order={{ next_order }}{% if filter_status %}&status={{ filter_status }}{% endif %}{% if filter_source %}&source={{ filter_source }}{% endif %}{% endmacro %}
+{% macro sort_icon(col) %}{% if sort == col %}{{ '↑' if order == 'asc' else '↓' }}{% else %}<span class="opacity-30">↕</span>{% endif %}{% endmacro %}
+
 {% if topics %}
 <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
       <tr>
-        <th class="px-4 py-3 text-left w-8">ID</th>
-        <th class="px-4 py-3 text-left w-8">P</th>
+        <th class="px-4 py-3 text-left w-8">
+          <a href="{{ sort_url('id') }}" class="hover:text-herba flex items-center gap-1">ID {{ sort_icon('id') }}</a>
+        </th>
+        <th class="px-4 py-3 text-left w-8">
+          <a href="{{ sort_url('priority') }}" class="hover:text-herba flex items-center gap-1">P {{ sort_icon('priority') }}</a>
+        </th>
         <th class="px-4 py-3 text-left">Titolo</th>
-        <th class="px-4 py-3 text-left">Fonte</th>
-        <th class="px-4 py-3 text-left">Stato</th>
-        <th class="px-4 py-3 text-left">Data</th>
+        <th class="px-4 py-3 text-left">
+          <a href="{{ sort_url('source') }}" class="hover:text-herba flex items-center gap-1">Fonte {{ sort_icon('source') }}</a>
+        </th>
+        <th class="px-4 py-3 text-left">
+          <a href="{{ sort_url('status') }}" class="hover:text-herba flex items-center gap-1">Stato {{ sort_icon('status') }}</a>
+        </th>
+        <th class="px-4 py-3 text-left">
+          <a href="{{ sort_url('created_at') }}" class="hover:text-herba flex items-center gap-1">Data {{ sort_icon('created_at') }}</a>
+        </th>
         <th class="px-4 py-3 text-left">Azioni</th>
       </tr>
     </thead>
