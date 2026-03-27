@@ -34,6 +34,8 @@ from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
+    MessageHandler,
+    filters,
 )
 
 from config import get_all_active_sites, get_site_config
@@ -476,6 +478,67 @@ async def cmd_publish(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         db.close()
 
 
+async def cmd_syncemail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/syncemail — manually trigger email ingestor to process unread forwarded emails."""
+    from inputs.email_ingestor import run_email_ingestor
+    await update.message.reply_text("📬 Lettura email in corso...")
+    db = SessionLocal()
+    try:
+        topics = run_email_ingestor(db)
+        if not topics:
+            await update.message.reply_text("Nessuna email non letta trovata.")
+        else:
+            lines = [f"✅ {len(topics)} topic creati da email:\n"]
+            for t in topics:
+                lines.append(f"• [{t.id}] {textwrap.shorten(t.title, width=60)}")
+            await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    except EnvironmentError as exc:
+        await update.message.reply_text(
+            f"❌ Configurazione mancante: {exc}\n"
+            f"Imposta INGESTOR_EMAIL e INGESTOR_PASSWORD nel .env"
+        )
+    except Exception as exc:
+        await update.message.reply_text(f"❌ Errore: {exc}")
+        log.error("syncemail_failed", error=str(exc))
+    finally:
+        db.close()
+
+
+async def handle_url_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle plain text messages that contain a URL — ingest as topic."""
+    import re
+    text = update.message.text or ""
+    urls = re.findall(r"https?://[^\s]+", text)
+    if not urls:
+        return  # not a URL message, ignore
+
+    url = urls[0]
+    await update.message.reply_text(f"🔍 Analizzo URL: {url}")
+
+    from inputs.url_ingestor import ingest_url
+    db = SessionLocal()
+    try:
+        topic = ingest_url(url, db)
+        if topic:
+            await update.message.reply_text(
+                f"✅ Topic creato da URL:\n"
+                f"<b>[{topic.id}]</b> {topic.title}\n\n"
+                f"Usa /approve {topic.id} per approvarlo.",
+                parse_mode="HTML",
+            )
+            log.info("url_topic_created_via_telegram", topic_id=topic.id, url=url)
+        else:
+            await update.message.reply_text(
+                "❌ Non sono riuscito ad estrarre un topic dall'URL. "
+                "Prova con un articolo che abbia contenuto testuale."
+            )
+    except Exception as exc:
+        await update.message.reply_text(f"❌ Errore durante l'analisi: {exc}")
+        log.error("url_ingest_telegram_failed", url=url, error=str(exc))
+    finally:
+        db.close()
+
+
 async def cmd_report(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """/report — weekly summary."""
     from datetime import datetime, timedelta
@@ -664,7 +727,10 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("publish", cmd_publish))
     app.add_handler(CommandHandler("sites", cmd_sites))
     app.add_handler(CommandHandler("report", cmd_report))
+    app.add_handler(CommandHandler("syncemail", cmd_syncemail))
     app.add_handler(CallbackQueryHandler(handle_callback))
+    # URL messages: intercept plain text containing https?:// links
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url_message))
 
     return app
 
