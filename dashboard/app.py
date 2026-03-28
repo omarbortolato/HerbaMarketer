@@ -28,7 +28,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -216,7 +216,7 @@ async def logout(request: Request):
 
 
 @app.get("/", response_class=HTMLResponse)
-async def overview(request: Request, db: Session = Depends(get_db)):
+async def overview(request: Request, triggered: Optional[str] = None, db: Session = Depends(get_db)):
     """Overview: all sites with traffic-light status and global counters."""
     active_sites = get_all_active_sites()
 
@@ -271,6 +271,7 @@ async def overview(request: Request, db: Session = Depends(get_db)):
             "total_emails": total_emails,
             "total_articles": total_articles,
             "now": datetime.utcnow(),
+            "triggered": triggered,
             "current_user": request.session.get("user"),
         },
     )
@@ -503,6 +504,22 @@ async def logs(
             "current_user": request.session.get("user"),
         },
     )
+
+
+@app.post("/run/email-job")
+async def run_email_job(background_tasks: BackgroundTasks):
+    """Manually trigger email_job in background."""
+    from core.scheduler import email_job
+    background_tasks.add_task(email_job)
+    return RedirectResponse(url="/?triggered=email", status_code=303)
+
+
+@app.post("/run/article-job")
+async def run_article_job(background_tasks: BackgroundTasks):
+    """Manually trigger article_job in background."""
+    from core.scheduler import article_job
+    background_tasks.add_task(article_job)
+    return RedirectResponse(url="/?triggered=article", status_code=303)
 
 
 @app.get("/config", response_class=HTMLResponse)

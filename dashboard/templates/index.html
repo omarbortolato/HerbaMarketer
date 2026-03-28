@@ -4,6 +4,40 @@
 {% block content %}
 <h1 class="text-2xl font-bold mb-6">Overview</h1>
 
+<!-- Flash message after manual trigger -->
+{% if triggered %}
+<div class="mb-5 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+  ✅ Job <b>{{ 'email' if triggered == 'email' else 'articolo' }}</b> avviato in background.
+  Controlla Telegram tra qualche minuto per la notifica di completamento.
+</div>
+{% endif %}
+
+<!-- Manual trigger panel -->
+<div class="bg-white rounded-xl border shadow-sm p-5 mb-8">
+  <h2 class="font-semibold text-sm text-gray-600 uppercase tracking-wide mb-4">Avvia manualmente</h2>
+  <div class="flex gap-3 flex-wrap">
+    <form method="POST" action="/run/email-job">
+      <button type="submit"
+              onclick="return confirm('Avvia email_job adesso? Userà il primo topic approved in coda.')"
+              class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+        📧 Genera Email ora
+      </button>
+    </form>
+    <form method="POST" action="/run/article-job">
+      <button type="submit"
+              onclick="return confirm('Avvia article_job adesso? Userà il primo topic approved in coda.')"
+              class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+        📝 Genera Articolo ora
+      </button>
+    </form>
+    <a href="/topics?status=approved"
+       class="flex items-center gap-2 border border-gray-300 text-gray-600 hover:border-herba hover:text-herba text-sm font-medium px-4 py-2 rounded-lg transition">
+      📋 Topic approvati in coda
+    </a>
+  </div>
+  <p class="text-xs text-gray-400 mt-3">Il job parte in background. Riceverai la notifica su Telegram al completamento. Assicurati di avere almeno un topic approvato in coda.</p>
+</div>
+
 <!-- Global counters -->
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
   <div class="bg-white rounded-xl shadow-sm border p-5 text-center">
