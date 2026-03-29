@@ -550,37 +550,39 @@ def _process_article_for_sites(
             # Translate (no-op if same language)
             translated = translate_article(master_article, site_cfg)
 
-            # Validate translation
+            # Fix product URL: replace IT master URL with target site URL
+            target_product_url = find_product_url("Formula 1 Herbalife", site_cfg)
+            if target_product_url is None:
+                target_product_url = site_cfg.url
+                log.warning(
+                    "product_not_available_for_site_using_fallback",
+                    site=site_cfg.slug,
+                    fallback=target_product_url,
+                )
+                notify_error(
+                    f"Prodotto non trovato — {site_cfg.slug}",
+                    f"Non ho trovato l'URL di 'Formula 1 Herbalife' su {site_cfg.url}.\n"
+                    f"Inviami il link diretto o il nome esatto del prodotto.",
+                )
+            if master_article.product_url and target_product_url != master_article.product_url:
+                translated.content_html = translated.content_html.replace(
+                    master_article.product_url, target_product_url
+                )
+            translated.product_url = target_product_url
+
+            # Validate translation — non-blocking: log warning but publish anyway
             val = validate_content(
                 translated.content_html, "article", site_cfg.language
             )
             if not val.passed:
                 log.warning(
-                    "article_translation_validation_failed",
+                    "article_translation_validation_warning",
                     site=site_cfg.slug,
                     issues=val.issues,
+                    score=val.score,
                 )
-                _log_publish(
-                    db, "article", 0, site_db.id, "failed",
-                    f"Validation failed: {'; '.join(val.issues)}",
-                )
-                notify_error(
-                    f"Articolo {site_cfg.slug}",
-                    f"Validazione traduzione fallita: {'; '.join(val.issues)}",
-                )
-                continue
-
-            # Product availability check: look up product URL from sitemap.
-            # Non-fatal: if not found, fall back to site root URL.
-            product_url = find_product_url("Formula 1 Herbalife", site_cfg)
-            if product_url is None:
-                product_url = site_cfg.url
-                log.warning(
-                    "product_not_available_for_site_using_fallback",
-                    site=site_cfg.slug,
-                    product="Formula 1 Herbalife",
-                    fallback=product_url,
-                )
+                # Non-blocking: continue with publish, record issues in log detail
+            product_url = target_product_url
 
             # Save draft record to DB
             article_db = Article(
@@ -607,9 +609,10 @@ def _process_article_for_sites(
             article_db.wp_post_id = wp_result.post_id
             db.commit()
 
+            val_note = f" | validation score={val.score}" if not val.passed else ""
             _log_publish(
                 db, "article", article_db.id, site_db.id, "published",
-                f"WP draft post_id={wp_result.post_id}",
+                f"WP draft post_id={wp_result.post_id}{val_note}",
             )
 
             results.append({
@@ -629,6 +632,10 @@ def _process_article_for_sites(
         except Exception as exc:
             log.error("site_article_job_failed", site=site_cfg.slug, error=str(exc))
             notify_error(f"Articolo {site_cfg.slug}", str(exc))
+            try:
+                _log_publish(db, "article", 0, site_db.id, "failed", str(exc))
+            except Exception:
+                pass  # site_db may not be defined if exception happened early
 
     return results
 

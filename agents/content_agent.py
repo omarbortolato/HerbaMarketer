@@ -58,6 +58,7 @@ class ArticleOutput:
     image_prompt: str
     language: str
     site_slug: str
+    product_url: str = ""  # product URL used in CTA (for post-translation replacement)
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +423,7 @@ def generate_article(
         image_prompt=raw["image_prompt"],
         language=site_config.language,
         site_slug=site_config.slug,
+        product_url=product_url,
     )
 
     log.info("article_generated", site=site_config.slug, title=article.title)
