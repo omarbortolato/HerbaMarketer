@@ -251,7 +251,7 @@ def translate_article(
         target_language=target_lang,
         target_country=target_site.country,
     )
-    raw = _call_claude(msgs, sys_prompt, context=f"translate_article→{target_lang}")
+    raw = _call_claude(msgs, sys_prompt, context=f"translate_article→{target_lang}", max_tokens=8192)
 
     required = {"title", "slug", "content_html", "meta_title", "meta_description", "image_prompt"}
     missing = required - raw.keys()
