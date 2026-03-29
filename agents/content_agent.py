@@ -45,6 +45,7 @@ class EmailPairOutput:
     email_2: EmailContent   # product/solution email
     language: str
     site_slug: str
+    product_url: str = ""   # product URL used in email_2 CTA (for post-translation replacement)
 
 
 @dataclass
@@ -361,6 +362,7 @@ def generate_email_pair(
         email_2=email_2,
         language=site_config.language,
         site_slug=site_config.slug,
+        product_url=product_url,
     )
 
 

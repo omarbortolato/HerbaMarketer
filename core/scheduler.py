@@ -121,6 +121,72 @@ def _log_publish(db, entity_type: str, entity_id: int, site_id: int,
     db.commit()
 
 
+def _fix_email_urls(
+    translated: "EmailPairOutput",
+    master_site: SiteConfig,
+    target_site: SiteConfig,
+    master_product_url: str,
+) -> "EmailPairOutput":
+    """
+    After translation, replace IT master URLs with target-site URLs:
+      - Footer: preferred_customer_url and distributor_url
+      - Email 2 CTA: product URL looked up from target site's sitemap
+
+    If the product URL can't be found in the target sitemap, sends a Telegram
+    notification asking Omar for the correct URL and falls back to site root.
+    """
+    replacements: dict[str, str] = {}
+
+    # Footer links
+    it_pc = master_site.preferred_customer_url or ""
+    tgt_pc = target_site.preferred_customer_url or ""
+    if it_pc and tgt_pc and it_pc != tgt_pc:
+        replacements[it_pc] = tgt_pc
+
+    it_dist = master_site.distributor_url or ""
+    tgt_dist = target_site.distributor_url or ""
+    if it_dist and tgt_dist and it_dist != tgt_dist:
+        replacements[it_dist] = tgt_dist
+
+    # Product URL in email_2
+    if master_product_url:
+        target_product_url = find_product_url("Formula 1 Herbalife", target_site)
+        if target_product_url is None:
+            log.warning(
+                "product_url_not_found_for_target_site",
+                site=target_site.slug,
+                fallback=target_site.url,
+            )
+            notify_error(
+                f"Prodotto non trovato — {target_site.slug}",
+                f"Non ho trovato l'URL di 'Formula 1 Herbalife' su {target_site.url}.\n"
+                f"Inviami il link diretto o il nome esatto del prodotto e aggiorno il link.",
+            )
+            target_product_url = target_site.url
+        if target_product_url != master_product_url:
+            replacements[master_product_url] = target_product_url
+
+    if not replacements:
+        return translated
+
+    def _apply(text: str) -> str:
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        return text
+
+    translated.email_1.body_html = _apply(translated.email_1.body_html)
+    translated.email_1.body_text = _apply(translated.email_1.body_text)
+    translated.email_2.body_html = _apply(translated.email_2.body_html)
+    translated.email_2.body_text = _apply(translated.email_2.body_text)
+
+    log.info(
+        "email_urls_fixed",
+        target_site=target_site.slug,
+        replacements=list(replacements.keys()),
+    )
+    return translated
+
+
 def _already_published(db, topic_id: int, site_id: int) -> bool:
     """Idempotency check: return True if this topic/site pair was already published."""
     return (
@@ -292,6 +358,11 @@ def _process_site_email_with_translations(
 
             # Translate if needed
             translated = translate_email_pair(master_pair, site_cfg)
+
+            # Fix URLs: replace IT master product/footer URLs with target site URLs
+            translated = _fix_email_urls(
+                translated, master_site, site_cfg, master_pair.product_url
+            )
 
             # Validate translation
             tv1 = validate_content(translated.email_1.body_html, "email_1", site_cfg.language)
