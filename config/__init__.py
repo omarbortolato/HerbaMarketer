@@ -164,3 +164,64 @@ def get_settings() -> GlobalSettings:
 
 # Convenience alias
 settings = get_settings()
+
+
+# ---------------------------------------------------------------------------
+# Config persistence (write-back to YAML)
+# ---------------------------------------------------------------------------
+
+
+def reset_config_cache() -> None:
+    """Invalidate in-memory config caches so next read reloads from YAML."""
+    global _sites, _settings
+    _sites = None
+    _settings = None
+
+
+def save_site_field(slug: str, field: str, value) -> None:
+    """
+    Update a single field for one site in sites.yaml and reset the cache.
+    Only fields in the allowed list can be changed.
+    """
+    _ALLOWED_SITE_FIELDS = {
+        "mautic_campaign_id", "email_prefix", "brevo_list_id",
+        "preferred_customer_url", "distributor_url", "active",
+    }
+    if field not in _ALLOWED_SITE_FIELDS:
+        raise ValueError(f"Field '{field}' is not editable via the dashboard")
+
+    path = _CONFIG_DIR / "sites.yaml"
+    data = _load_yaml("sites.yaml")
+    if slug not in data.get("sites", {}):
+        raise KeyError(f"Site '{slug}' not found in sites.yaml")
+
+    # Cast to correct type
+    if field in ("mautic_campaign_id", "brevo_list_id"):
+        value = int(value) if value else None
+    elif field == "active":
+        value = bool(value)
+
+    data["sites"][slug][field] = value
+
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    reset_config_cache()
+
+
+def save_scheduler_settings(
+    email_interval: int,
+    article_interval: int,
+    keyword_interval: int,
+) -> None:
+    """Update scheduler intervals in settings.yaml and reset the cache."""
+    path = _CONFIG_DIR / "settings.yaml"
+    data = _load_yaml("settings.yaml")
+    data["scheduler"]["email_job_interval_days"] = int(email_interval)
+    data["scheduler"]["article_job_interval_days"] = int(article_interval)
+    data["scheduler"]["keyword_research_interval_days"] = int(keyword_interval)
+
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    reset_config_cache()

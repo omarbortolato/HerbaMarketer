@@ -88,14 +88,25 @@ def _get_or_create_site_db(db, site_cfg: SiteConfig) -> Site:
     return site
 
 
-def _pick_next_topic(db) -> Optional[ContentTopic]:
-    """
-    Pick the next approved topic from the backlog.
-    Priority: highest priority first, then oldest.
+def _pick_next_topic_for_email(db) -> Optional[ContentTopic]:
+    """Pick the next topic eligible for email generation.
+    Eligible: approved (neither job done yet) or article_done (article done, email still pending).
     """
     return (
         db.query(ContentTopic)
-        .filter(ContentTopic.status == "approved")
+        .filter(ContentTopic.status.in_(["approved", "article_done"]))
+        .order_by(ContentTopic.priority.desc(), ContentTopic.created_at)
+        .first()
+    )
+
+
+def _pick_next_topic_for_article(db) -> Optional[ContentTopic]:
+    """Pick the next topic eligible for article generation.
+    Eligible: approved (neither job done yet) or email_done (emails done, article still pending).
+    """
+    return (
+        db.query(ContentTopic)
+        .filter(ContentTopic.status.in_(["approved", "email_done"]))
         .order_by(ContentTopic.priority.desc(), ContentTopic.created_at)
         .first()
     )
@@ -458,17 +469,16 @@ def email_job() -> None:
 
     db = SessionLocal()
     try:
-        topic = _pick_next_topic(db)
+        topic = _pick_next_topic_for_email(db)
         if not topic:
-            log.info("email_job_no_approved_topics")
-            notify_error("Email Job", "Nessun topic approvato in backlog — aggiungi topic con /addtopic")
+            log.info("email_job_no_eligible_topics")
+            notify_error("Email Job", "Nessun topic in backlog per le email — aggiungi topic con /addtopic")
             return
 
-        # Mark as in_progress
+        original_status = topic.status
         topic.status = "in_progress"
         db.commit()
 
-        # IT is the master site
         it_site = next(
             (s for s in get_all_active_sites() if s.slug == "herbago_it"), None
         )
@@ -477,11 +487,12 @@ def email_job() -> None:
 
         try:
             _process_site_email_with_translations(it_site, topic, db)
-            topic.status = "done"
+            # If article was already done, both are done; otherwise mark email as done
+            topic.status = "done" if original_status == "article_done" else "email_done"
             db.commit()
-            log.info("email_job_finished", topic_id=topic.id)
+            log.info("email_job_finished", topic_id=topic.id, new_status=topic.status)
         except Exception as exc:
-            topic.status = "approved"  # reset so it can be retried
+            topic.status = original_status  # reset to original so it can be retried
             db.commit()
             log.error("email_job_failed", topic_id=topic.id, error=str(exc))
             notify_error("Email Job", str(exc))
@@ -646,10 +657,10 @@ def article_job() -> None:
 
     db = SessionLocal()
     try:
-        topic = _pick_next_topic(db)
+        topic = _pick_next_topic_for_article(db)
 
         if not topic:
-            # No approved topic — ask Omar to pick one
+            # No eligible topic — ask Omar to pick one
             pending = (
                 db.query(ContentTopic)
                 .filter(ContentTopic.status == "pending")
@@ -658,9 +669,10 @@ def article_job() -> None:
                 .all()
             )
             notify_topic_selection(pending)
-            log.info("article_job_no_approved_topics_notified")
+            log.info("article_job_no_eligible_topics_notified")
             return
 
+        original_status = topic.status
         topic.status = "in_progress"
         db.commit()
 
@@ -726,11 +738,13 @@ def article_job() -> None:
             else:
                 log.warning("article_job_no_drafts_published", topic_id=topic.id)
 
-            topic.status = "done"
+            # If emails were already done, both are done; otherwise mark article as done
+            topic.status = "done" if original_status == "email_done" else "article_done"
             db.commit()
+            log.info("article_job_finished", topic_id=topic.id, new_status=topic.status)
 
         except Exception as exc:
-            topic.status = "approved"  # reset for retry
+            topic.status = original_status  # reset for retry
             db.commit()
             log.error("article_job_failed", topic_id=topic.id, error=str(exc))
             notify_error("Article Job", str(exc))

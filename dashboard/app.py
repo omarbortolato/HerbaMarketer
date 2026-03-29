@@ -369,11 +369,22 @@ async def topics(
             "filter_source": source or "",
             "sort": sort,
             "order": order,
-            "statuses": ["pending", "approved", "rejected", "in_progress", "done"],
+            "statuses": ["pending", "approved", "email_done", "article_done", "done", "rejected", "in_progress"],
             "sources": ["manual", "seo_agent", "email_input", "url_input"],
             "current_user": request.session.get("user"),
         },
     )
+
+
+@app.post("/topics/{topic_id}/reactivate")
+async def reactivate_topic(topic_id: int, db: Session = Depends(get_db)):
+    """Reset a done/email_done/article_done topic back to approved."""
+    topic = db.query(ContentTopic).filter(ContentTopic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    topic.status = "approved"
+    db.commit()
+    return RedirectResponse(url="/topics", status_code=303)
 
 
 @app.post("/topics/{topic_id}/approve")
@@ -523,15 +534,53 @@ async def run_article_job(background_tasks: BackgroundTasks):
 
 
 @app.get("/config", response_class=HTMLResponse)
-async def config_view(request: Request):
-    """Read-only view of active site configurations."""
+async def config_view(request: Request, saved: Optional[str] = None):
+    """Editable view of site configurations and global settings."""
+    from config import get_settings
     active_sites = get_all_active_sites()
+    s = get_settings()
 
     return templates.TemplateResponse(
         request=request,
         name="config.html",
         context={
             "sites": active_sites,
+            "settings": s,
+            "saved": saved,
             "current_user": request.session.get("user"),
         },
     )
+
+
+@app.post("/config/save-site/{slug}")
+async def config_save_site(
+    slug: str,
+    mautic_campaign_id: Optional[str] = Form(None),
+    email_prefix: Optional[str] = Form(None),
+    preferred_customer_url: Optional[str] = Form(None),
+    distributor_url: Optional[str] = Form(None),
+):
+    """Save editable fields for one site to sites.yaml."""
+    from config import save_site_field
+    fields = {
+        "mautic_campaign_id": mautic_campaign_id,
+        "email_prefix": email_prefix,
+        "preferred_customer_url": preferred_customer_url,
+        "distributor_url": distributor_url,
+    }
+    for field, value in fields.items():
+        if value is not None:
+            save_site_field(slug, field, value or None)
+    return RedirectResponse(url="/config?saved=site", status_code=303)
+
+
+@app.post("/config/save-settings")
+async def config_save_settings(
+    email_interval: int = Form(...),
+    article_interval: int = Form(...),
+    keyword_interval: int = Form(...),
+):
+    """Save scheduler intervals to settings.yaml."""
+    from config import save_scheduler_settings
+    save_scheduler_settings(email_interval, article_interval, keyword_interval)
+    return RedirectResponse(url="/config?saved=settings", status_code=303)

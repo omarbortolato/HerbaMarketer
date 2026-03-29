@@ -7,6 +7,26 @@
   <span class="text-sm text-gray-400">{{ topics | length }} risultati</span>
 </div>
 
+<!-- Manual trigger panel -->
+<div class="bg-white rounded-xl border shadow-sm p-4 mb-5 flex gap-3 flex-wrap items-center">
+  <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">Avvia ora:</span>
+  <form method="POST" action="/run/email-job">
+    <button type="submit"
+            onclick="return confirm('Avvia email_job? Usa il primo topic approved/article_done in coda.')"
+            class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+      📧 Genera Email
+    </button>
+  </form>
+  <form method="POST" action="/run/article-job">
+    <button type="submit"
+            onclick="return confirm('Avvia article_job? Usa il primo topic approved/email_done in coda.')"
+            class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+      📝 Genera Articolo
+    </button>
+  </form>
+  <span class="text-xs text-gray-400">Il job parte in background — ricevi notifica su Telegram al completamento.</span>
+</div>
+
 <!-- Add topic form -->
 <div class="bg-white rounded-xl border shadow-sm p-5 mb-6">
   <h2 class="font-semibold mb-3 text-sm text-gray-600 uppercase tracking-wide">Aggiungi topic manuale</h2>
@@ -103,9 +123,13 @@
           {% elif topic.status == 'pending' %}
             <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs">pending</span>
           {% elif topic.status == 'done' %}
-            <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs">fatto</span>
+            <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs">✓ completo</span>
+          {% elif topic.status == 'email_done' %}
+            <span class="px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 text-xs">📧 email ok</span>
+          {% elif topic.status == 'article_done' %}
+            <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-xs">📝 articolo ok</span>
           {% elif topic.status == 'in_progress' %}
-            <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs">in corso</span>
+            <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs">⏳ in corso</span>
           {% else %}
             <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs">{{ topic.status }}</span>
           {% endif %}
@@ -133,6 +157,13 @@
               <button type="submit"
                       class="text-xs px-2 py-1 border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition">
                 Annulla
+              </button>
+            </form>
+            {% elif topic.status in ('done', 'email_done', 'article_done') %}
+            <form method="POST" action="/topics/{{ topic.id }}/reactivate" class="inline">
+              <button type="submit"
+                      class="text-xs px-2 py-1 border border-herba text-herba rounded hover:bg-herba-light transition">
+                ↺ Riattiva
               </button>
             </form>
             {% endif %}
