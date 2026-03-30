@@ -66,22 +66,30 @@
   <div class="bg-white rounded-xl shadow-sm border hover:shadow-md transition p-5">
     <div class="flex items-center justify-between mb-3">
       <a href="/sites/{{ s.cfg.slug }}" class="font-semibold text-gray-800 hover:text-herba">{{ s.cfg.slug }}</a>
-      <!-- Status dot with tooltip -->
-      <div class="relative group flex items-center gap-2">
-        <span class="inline-block w-3 h-3 rounded-full {{ dot }} cursor-help"></span>
-        <!-- Tooltip -->
-        <div class="absolute right-0 top-5 z-10 hidden group-hover:block w-64 bg-gray-800 text-white text-xs rounded-lg p-3 shadow-xl leading-relaxed">
-          <div class="font-semibold mb-1 {% if s.status == 'green' %}text-green-400{% elif s.status == 'yellow' %}text-yellow-400{% else %}text-red-400{% endif %}">
-            {{ {'green': '✅ Verde', 'yellow': '⚠️ Giallo', 'red': '🔴 Rosso'}[s.status] }}
+      <!-- Status dot — click to open/close tooltip -->
+      <div class="relative flex items-center gap-2">
+        <span onclick="toggleStatus('{{ s.cfg.slug }}')"
+              class="inline-block w-3 h-3 rounded-full {{ dot }} cursor-pointer"></span>
+        <!-- Tooltip (hidden by default, toggled on click) -->
+        <div id="status-{{ s.cfg.slug }}"
+             class="hidden absolute right-0 top-5 z-20 w-72 bg-gray-800 text-white text-xs rounded-lg shadow-xl leading-relaxed">
+          <!-- Header with close button -->
+          <div class="flex items-center justify-between px-3 pt-3 pb-2 border-b border-gray-700">
+            <span class="font-semibold {% if s.status == 'green' %}text-green-400{% elif s.status == 'yellow' %}text-yellow-400{% else %}text-red-400{% endif %}">
+              {{ {'green': '✅ Verde', 'yellow': '⚠️ Giallo', 'red': '🔴 Rosso'}[s.status] }}
+            </span>
+            <button onclick="closeStatus('{{ s.cfg.slug }}')" class="text-gray-400 hover:text-white ml-2">✕</button>
           </div>
-          <div>{{ s.detail }}</div>
+          <div class="px-3 py-2">{{ s.detail }}</div>
           {% if s.status == 'red' and s.site_db_id %}
-          <form method="POST" action="/sites/{{ s.cfg.slug }}/ack-errors" class="mt-2">
-            <button type="submit"
-                    class="w-full text-center bg-gray-600 hover:bg-gray-500 text-white px-2 py-1 rounded text-xs transition">
-              🔕 Segna come risolto
-            </button>
-          </form>
+          <div class="px-3 pb-3">
+            <form method="POST" action="/sites/{{ s.cfg.slug }}/ack-errors">
+              <button type="submit"
+                      class="w-full text-center bg-gray-600 hover:bg-gray-500 text-white px-2 py-1.5 rounded text-xs transition">
+                🔕 Segna come risolto
+              </button>
+            </form>
+          </div>
           {% endif %}
         </div>
       </div>
@@ -99,6 +107,24 @@
   </div>
   {% endfor %}
 </div>
+
+<script>
+function toggleStatus(slug) {
+  const el = document.getElementById('status-' + slug);
+  el.classList.toggle('hidden');
+}
+function closeStatus(slug) {
+  document.getElementById('status-' + slug).classList.add('hidden');
+}
+// Click outside any open tooltip to close it
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.relative')) {
+    document.querySelectorAll('[id^="status-"]').forEach(function(t) {
+      t.classList.add('hidden');
+    });
+  }
+});
+</script>
 
 <!-- Legend -->
 <div class="mt-6 flex gap-4 text-xs text-gray-400">
