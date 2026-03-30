@@ -24,6 +24,7 @@ Run:
 import hashlib
 import os
 import secrets
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -32,6 +33,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Requ
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -45,10 +47,35 @@ from core.database import (
     SessionLocal,
     Site,
     SiteStatusAck,
+    engine,
     get_db,
 )
+from core.database import create_tables
 
-app = FastAPI(title="HerbaMarketer Dashboard", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Run DB migrations on startup: create missing tables and add new columns."""
+    # Create tables that don't exist yet (safe to call repeatedly)
+    create_tables()
+    # Add new columns to existing tables if missing (PostgreSQL IF NOT EXISTS)
+    migrations = [
+        "ALTER TABLE content_topics ADD COLUMN IF NOT EXISTS product_url VARCHAR",
+    ]
+    try:
+        with engine.connect() as conn:
+            for sql in migrations:
+                try:
+                    conn.execute(text(sql))
+                except Exception:
+                    pass  # column already exists or SQLite (no IF NOT EXISTS)
+            conn.commit()
+    except Exception:
+        pass
+    yield
+
+
+app = FastAPI(title="HerbaMarketer Dashboard", version="1.0.0", lifespan=lifespan)
 
 # ---------------------------------------------------------------------------
 # Auth
