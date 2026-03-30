@@ -103,6 +103,7 @@ class ContentTopic(Base):
     source: str = Column(String, nullable=False)                  # "seo_agent" | "email_input" | "manual" | "url_input"
     source_detail: Optional[str] = Column(Text, nullable=True)    # URL, email text, keyword query
     product_sku: Optional[str] = Column(String, nullable=True)    # associated product SKU
+    product_url: Optional[str] = Column(String, nullable=True)    # IT product URL for CTA (optional override)
     status: str = Column(String, default="pending")               # "pending" | "approved" | "rejected" | "in_progress" | "done"
     priority: int = Column(Integer, default=5)
     created_at: datetime = Column(DateTime, default=func.now())
@@ -195,6 +196,21 @@ class PublishLog(Base):
 
     def __repr__(self) -> str:
         return f"<PublishLog id={self.id} entity={self.entity_type}/{self.entity_id} action={self.action!r}>"
+
+
+class SiteStatusAck(Base):
+    """
+    Tracks when a site's errors were last acknowledged by the user.
+    Failures before acked_at are ignored for the traffic-light status.
+    """
+
+    __tablename__ = "site_status_ack"
+
+    site_id: int = Column(Integer, ForeignKey("sites.id"), primary_key=True)
+    acked_at: datetime = Column(DateTime, nullable=False)
+
+    def __repr__(self) -> str:
+        return f"<SiteStatusAck site_id={self.site_id} acked_at={self.acked_at}>"
 
 
 class KeywordSnapshot(Base):

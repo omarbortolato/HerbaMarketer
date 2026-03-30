@@ -64,6 +64,7 @@ class WordPressPublisher:
         self.user = site_config.wp_user
         self.password = site_config.wp_password
         self.settings = get_settings()
+        self._author_id: Optional[int] = None  # cached after first lookup
 
         if not self.api_url:
             raise EnvironmentError(
@@ -77,6 +78,51 @@ class WordPressPublisher:
 
     def _auth(self) -> tuple[str, str]:
         return (self.user, self.password)
+
+    def _resolve_author_id(self) -> Optional[int]:
+        """
+        Look up the WP user ID for site_config.wp_author_name.
+        Result is cached for the lifetime of this publisher instance.
+        Returns None if wp_author_name is not set or user not found.
+        """
+        if self._author_id is not None:
+            return self._author_id
+
+        author_name = self.site.wp_author_name
+        if not author_name:
+            return None
+
+        try:
+            resp = httpx.get(
+                f"{self.api_url}/users",
+                auth=self._auth(),
+                params={"search": author_name, "per_page": 5},
+                timeout=10,
+                follow_redirects=True,
+            )
+            resp.raise_for_status()
+            users = resp.json()
+            # Find exact match on name or slug
+            for u in users:
+                if (u.get("name", "").lower() == author_name.lower()
+                        or u.get("slug", "").lower() == author_name.lower()):
+                    self._author_id = int(u["id"])
+                    log.info(
+                        "wp_author_resolved",
+                        site=self.site.slug,
+                        author=author_name,
+                        id=self._author_id,
+                    )
+                    return self._author_id
+            log.warning(
+                "wp_author_not_found",
+                site=self.site.slug,
+                author=author_name,
+            )
+        except Exception as exc:
+            log.warning("wp_author_lookup_failed", site=self.site.slug, error=str(exc))
+
+        return None
 
     def _delay(self) -> None:
         delay = self.settings.publishers.get("wordpress_delay_seconds", 1)
@@ -225,6 +271,10 @@ class WordPressPublisher:
         }
         if media_id:
             payload["featured_media"] = media_id
+
+        author_id = self._resolve_author_id()
+        if author_id:
+            payload["author"] = author_id
 
         self._delay()
         data = self._create_post(payload)

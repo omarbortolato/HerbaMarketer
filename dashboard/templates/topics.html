@@ -36,6 +36,11 @@
       <input type="text" name="title" required placeholder="es. Colazione proteica e metabolismo"
              class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
     </div>
+    <div class="flex-1 min-w-48">
+      <label class="block text-xs text-gray-500 mb-1">URL Prodotto su herbago.it <span class="text-gray-400">(opzionale)</span></label>
+      <input type="url" name="product_url" placeholder="https://herbago.it/p/formula-1-..."
+             class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+    </div>
     <div>
       <label class="block text-xs text-gray-500 mb-1">Priorità (1-10)</label>
       <input type="number" name="priority" value="5" min="1" max="10"
@@ -46,6 +51,7 @@
       + Aggiungi
     </button>
   </form>
+  <p class="text-xs text-gray-400 mt-2">Se specifichi l'URL prodotto, il sistema cercherà il prodotto equivalente su tutti gli altri siti. Se lasci vuoto, userà Formula 1 Herbalife come default.</p>
 </div>
 
 <!-- Filters -->

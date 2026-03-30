@@ -46,7 +46,7 @@ from core.database import (
     Site,
 )
 from core.image_generator import generate_image
-from core.sitemap import find_product_url
+from core.sitemap import find_equivalent_product_url, find_product_url
 from core.telegram_bot import (
     notify_article_drafts_ready,
     notify_brevo_templates_ready,
@@ -161,7 +161,7 @@ def _fix_email_urls(
 
     # Product URL in email_2
     if master_product_url:
-        target_product_url = find_product_url("Formula 1 Herbalife", target_site)
+        target_product_url = find_equivalent_product_url(master_product_url, target_site)
         if target_product_url is None:
             log.warning(
                 "product_url_not_found_for_target_site",
@@ -344,6 +344,7 @@ def _process_site_email_with_translations(
             master_pair = generate_email_pair(
                 topic=topic.title,
                 site_config=master_site,
+                product_url=topic.product_url or None,
             )
             break
         except Exception as exc:
@@ -550,8 +551,11 @@ def _process_article_for_sites(
             # Translate (no-op if same language)
             translated = translate_article(master_article, site_cfg)
 
-            # Fix product URL: replace IT master URL with target site URL
-            target_product_url = find_product_url("Formula 1 Herbalife", site_cfg)
+            # Fix product URL: replace IT master URL with target site equivalent
+            if master_article.product_url:
+                target_product_url = find_equivalent_product_url(master_article.product_url, site_cfg)
+            else:
+                target_product_url = find_product_url("Formula 1 Herbalife", site_cfg)
             if target_product_url is None:
                 target_product_url = site_cfg.url
                 log.warning(
@@ -708,6 +712,7 @@ def article_job() -> None:
                         topic=topic.title,
                         keyword=keyword,
                         site_config=it_site,
+                        product_url=topic.product_url or None,
                     )
                     break
                 except Exception as exc:

@@ -221,8 +221,12 @@ def _build_article_messages(
         f"- NO linee separatrici\n"
         f"{cta_instruction}\n"
         f"- Dopo articolo: meta_title (max 60 char) e meta_description (max 155 char)\n"
-        f"- image_prompt: scena iper-realistica, benessere e natura, "
-        f"NO prodotti, NO testo, NO persone riconoscibili\n\n"
+        f"- image_prompt: SCRIVILO IN INGLESE. Descrivi una scena fotografica iper-realistica "
+        f"correlata all'argomento '{topic}'. La scena deve evocare benessere, natura, stile di vita sano. "
+        f"Includi: tipo di luce (dorata, diffusa, etc.), composizione, ambiente specifico "
+        f"(cucina moderna, parco, foresta, tavola con cibo fresco, etc.), texture e colori dominanti. "
+        f"Minimo 3 frasi descrittive. "
+        f"VIETATO: prodotti Herbalife, brand, loghi, testi scritti, volti riconoscibili.\n\n"
         f"Rispondi ESCLUSIVAMENTE con JSON valido, nessun testo prima o dopo:\n"
         f'{{"title": "...", "slug": "...", "content_html": "...", '
         f'"meta_title": "...", "meta_description": "...", "image_prompt": "..."}}'

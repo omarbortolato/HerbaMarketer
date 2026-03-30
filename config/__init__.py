@@ -47,6 +47,7 @@ class SiteConfig:
     wp_password_env: Optional[str] = None
     preferred_customer_url: Optional[str] = None
     distributor_url: Optional[str] = None
+    wp_author_name: Optional[str] = None   # WP display name for posts (e.g. "Elena")
 
     @property
     def wp_user(self) -> Optional[str]:
@@ -115,6 +116,7 @@ def _load_sites() -> dict[str, SiteConfig]:
             wp_password_env=cfg.get("wp_password_env"),
             preferred_customer_url=cfg.get("preferred_customer_url"),
             distributor_url=cfg.get("distributor_url"),
+            wp_author_name=cfg.get("wp_author_name"),
         )
     return sites
 
@@ -185,7 +187,7 @@ def save_site_field(slug: str, field: str, value) -> None:
     """
     _ALLOWED_SITE_FIELDS = {
         "mautic_campaign_id", "email_prefix", "brevo_list_id",
-        "preferred_customer_url", "distributor_url", "active",
+        "preferred_customer_url", "distributor_url", "active", "wp_author_name",
     }
     if field not in _ALLOWED_SITE_FIELDS:
         raise ValueError(f"Field '{field}' is not editable via the dashboard")
@@ -202,6 +204,66 @@ def save_site_field(slug: str, field: str, value) -> None:
         value = bool(value)
 
     data["sites"][slug][field] = value
+
+    with open(path, "w", encoding="utf-8") as f:
+        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+    reset_config_cache()
+
+
+def add_site(
+    slug: str,
+    url: str,
+    language: str,
+    locale: str,
+    platform: str,
+    wp_api_url: Optional[str] = None,
+    mautic_campaign_id: Optional[int] = None,
+    email_prefix: Optional[str] = None,
+    brevo_list_id: Optional[int] = None,
+    preferred_customer_url: Optional[str] = None,
+    distributor_url: Optional[str] = None,
+    wp_author_name: Optional[str] = None,
+) -> None:
+    """
+    Add a new site entry to sites.yaml and reset the cache.
+    Auto-derives wp_user_env and wp_password_env from the slug.
+    Raises ValueError if the slug already exists.
+    """
+    path = _CONFIG_DIR / "sites.yaml"
+    data = _load_yaml("sites.yaml")
+
+    if slug in data.get("sites", {}):
+        raise ValueError(f"Site '{slug}' already exists in sites.yaml")
+
+    env_prefix = slug.upper()
+    entry: dict = {
+        "url": url,
+        "language": language,
+        "locale": locale,
+        "platform": platform,
+        "active": True,
+        "wp_user_env": f"WP_{env_prefix}_USER",
+        "wp_password_env": f"WP_{env_prefix}_APP_PASSWORD",
+    }
+    if wp_api_url:
+        entry["wp_api_url"] = wp_api_url
+    if mautic_campaign_id:
+        entry["mautic_campaign_id"] = int(mautic_campaign_id)
+    if email_prefix:
+        entry["email_prefix"] = email_prefix
+    if brevo_list_id:
+        entry["brevo_list_id"] = int(brevo_list_id)
+    if preferred_customer_url:
+        entry["preferred_customer_url"] = preferred_customer_url
+    if distributor_url:
+        entry["distributor_url"] = distributor_url
+    if wp_author_name:
+        entry["wp_author_name"] = wp_author_name
+
+    if "sites" not in data:
+        data["sites"] = {}
+    data["sites"][slug] = entry
 
     with open(path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)

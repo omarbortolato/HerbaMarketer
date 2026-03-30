@@ -217,3 +217,28 @@ def find_product_url(
         score=best_score,
     )
     return best_url
+
+
+def find_equivalent_product_url(
+    it_product_url: str,
+    target_site: SiteConfig,
+    min_score: int = 5,
+) -> Optional[str]:
+    """
+    Find the equivalent product URL on a target site using an IT product URL as reference.
+
+    Extracts the product slug from the IT URL (e.g. 'formula-1-vaniglia-550-g')
+    and searches the target site's product sitemap for the best slug match.
+
+    Args:
+        it_product_url: IT product URL (e.g. 'https://herbago.it/p/formula-1-vaniglia/')
+        target_site:    Destination site config.
+        min_score:      Minimum match score (default 5).
+
+    Returns:
+        Best matching product URL on the target site, or None if not found.
+    """
+    slug = _extract_product_slug(it_product_url)
+    # Convert URL slug to a pseudo product-name for the existing matching logic
+    product_name = slug.replace("-", " ")
+    return find_product_url(product_name, target_site, min_score=min_score)

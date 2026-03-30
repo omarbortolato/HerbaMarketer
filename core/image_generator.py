@@ -18,6 +18,14 @@ import structlog
 
 log = structlog.get_logger(__name__)
 
+# Prepended to every prompt to enforce photorealism regardless of the article topic.
+_PHOTO_PREFIX = (
+    "Hyperrealistic professional photography, Canon EOS 5D Mark IV, 85mm lens, "
+    "natural soft light, shallow depth of field, 8K ultra-high resolution, "
+    "photojournalistic wellness style, no text overlays, no logos, "
+    "no recognizable people: "
+)
+
 
 # ---------------------------------------------------------------------------
 # DALL-E 3
@@ -25,7 +33,7 @@ log = structlog.get_logger(__name__)
 
 
 def _generate_dalle3(prompt: str) -> str:
-    """Generate image with DALL-E 3. Returns the image URL."""
+    """Generate image with DALL-E 3 HD. Returns the image URL."""
     try:
         import openai
     except ImportError:
@@ -35,11 +43,14 @@ def _generate_dalle3(prompt: str) -> str:
 
     client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
+    full_prompt = _PHOTO_PREFIX + prompt
+
     response = client.images.generate(
         model="dall-e-3",
-        prompt=prompt,
+        prompt=full_prompt,
         size="1792x1024",
-        quality="standard",
+        quality="hd",
+        style="natural",
         n=1,
     )
 
@@ -59,15 +70,17 @@ def _generate_ideogram(prompt: str) -> str:
     if not api_key:
         raise EnvironmentError("IDEOGRAM_API_KEY is not set")
 
+    full_prompt = _PHOTO_PREFIX + prompt
+
     resp = httpx.post(
         "https://api.ideogram.ai/generate",
         headers={"Api-Key": api_key, "Content-Type": "application/json"},
         json={
             "image_request": {
-                "prompt": prompt,
+                "prompt": full_prompt,
                 "aspect_ratio": "ASPECT_16_9",
                 "model": "V_2",
-                "magic_prompt_option": "AUTO",
+                "magic_prompt_option": "OFF",  # Prefix already sets style; disable rewrite
             }
         },
         timeout=60,
@@ -91,8 +104,9 @@ def generate_image(prompt: str) -> str:
     Tries DALL-E 3 first (if OPENAI_API_KEY is set), then Ideogram.
 
     Args:
-        prompt: Image description. Should be hyper-realistic, wellness/nature,
-                no product shots, no text, no recognizable people.
+        prompt: Image description from content_agent. Should describe a
+                wellness/nature scene related to the article topic.
+                A photorealism prefix is added automatically.
 
     Returns:
         Public URL of the generated image (valid for ~1 hour for DALL-E 3,

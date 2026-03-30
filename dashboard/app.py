@@ -44,6 +44,7 @@ from core.database import (
     PublishLog,
     SessionLocal,
     Site,
+    SiteStatusAck,
     get_db,
 )
 
@@ -104,32 +105,43 @@ templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 # ---------------------------------------------------------------------------
 
 
-def _site_status(site_slug: str, db: Session) -> str:
+def _site_status(site_slug: str, db: Session) -> dict:
     """
     Compute traffic-light status for a site.
+    Returns dict with 'status' (green/yellow/red) and 'detail' (reason string).
+
     green  = published content in last 30 days
     yellow = last content 30-60 days ago
-    red    = no content in 60+ days OR recent failures
+    red    = no content in 60+ days OR recent un-acknowledged failures
     """
     site_db = db.query(Site).filter(Site.slug == site_slug).first()
     if not site_db:
-        return "red"
+        return {"status": "red", "detail": "Sito non ancora nel DB"}
 
-    cutoff_30 = datetime.utcnow() - timedelta(days=30)
-    cutoff_60 = datetime.utcnow() - timedelta(days=60)
-    cutoff_7 = datetime.utcnow() - timedelta(days=7)
+    now = datetime.utcnow()
+    cutoff_30 = now - timedelta(days=30)
+    cutoff_60 = now - timedelta(days=60)
+    cutoff_7 = now - timedelta(days=7)
 
-    recent_failures = (
+    # Check if errors are acknowledged
+    ack = db.query(SiteStatusAck).filter(SiteStatusAck.site_id == site_db.id).first()
+    failure_cutoff = ack.acked_at if ack else cutoff_7  # if acked, only look after ack time
+
+    last_failure = (
         db.query(PublishLog)
         .filter(
             PublishLog.site_id == site_db.id,
             PublishLog.action == "failed",
-            PublishLog.created_at >= cutoff_7,
+            PublishLog.created_at >= failure_cutoff,
+            PublishLog.created_at >= cutoff_7,  # always at most 7 days back
         )
-        .count()
+        .order_by(PublishLog.created_at.desc())
+        .first()
     )
-    if recent_failures > 0:
-        return "red"
+    if last_failure:
+        detail = last_failure.detail or "Errore senza dettagli"
+        short = detail[:120] + "..." if len(detail) > 120 else detail
+        return {"status": "red", "detail": f"Errore recente: {short}"}
 
     recent_email = (
         db.query(EmailPair)
@@ -150,9 +162,8 @@ def _site_status(site_slug: str, db: Session) -> str:
         .count()
     )
     if recent_email > 0 or recent_article > 0:
-        return "green"
+        return {"status": "green", "detail": "Contenuto pubblicato negli ultimi 30 giorni"}
 
-    # Check last 60 days
     semi_recent = (
         db.query(EmailPair)
         .filter(
@@ -163,9 +174,9 @@ def _site_status(site_slug: str, db: Session) -> str:
         .count()
     )
     if semi_recent > 0:
-        return "yellow"
+        return {"status": "yellow", "detail": "Nessun contenuto negli ultimi 30 giorni"}
 
-    return "red"
+    return {"status": "red", "detail": "Nessun contenuto pubblicato negli ultimi 60 giorni"}
 
 
 # ---------------------------------------------------------------------------
@@ -238,11 +249,14 @@ async def overview(request: Request, triggered: Optional[str] = None, db: Sessio
             .count()
             if site_db else 0
         )
+        status_info = _site_status(site_cfg.slug, db)
         sites_data.append({
             "cfg": site_cfg,
-            "status": _site_status(site_cfg.slug, db),
+            "status": status_info["status"],
+            "detail": status_info["detail"],
             "email_count": email_count,
             "article_count": article_count,
+            "site_db_id": site_db.id if site_db else None,
         })
 
     # Global counters
@@ -320,7 +334,7 @@ async def site_detail(slug: str, request: Request, db: Session = Depends(get_db)
         context={
             "site": site_cfg,
             "site_db": site_db,
-            "status": _site_status(slug, db),
+            "status": _site_status(slug, db)["status"],
             "email_pairs": email_pairs,
             "articles": articles,
             "recent_logs": recent_logs,
@@ -411,6 +425,7 @@ async def reject_topic(topic_id: int, db: Session = Depends(get_db)):
 async def add_topic(
     title: str = Form(...),
     priority: int = Form(5),
+    product_url: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     topic = ContentTopic(
@@ -418,10 +433,27 @@ async def add_topic(
         source="manual",
         status="pending",
         priority=priority,
+        product_url=product_url.strip() if product_url and product_url.strip() else None,
     )
     db.add(topic)
     db.commit()
     return RedirectResponse(url="/topics", status_code=303)
+
+
+@app.post("/sites/{slug}/ack-errors")
+async def ack_site_errors(slug: str, db: Session = Depends(get_db)):
+    """Mark all current errors for a site as acknowledged."""
+    site_db = db.query(Site).filter(Site.slug == slug).first()
+    if not site_db:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    ack = db.query(SiteStatusAck).filter(SiteStatusAck.site_id == site_db.id).first()
+    if ack:
+        ack.acked_at = datetime.utcnow()
+    else:
+        db.add(SiteStatusAck(site_id=site_db.id, acked_at=datetime.utcnow()))
+    db.commit()
+    return RedirectResponse(url="/", status_code=303)
 
 
 @app.get("/content/email/{pair_id}", response_class=HTMLResponse)
@@ -559,6 +591,7 @@ async def config_save_site(
     email_prefix: Optional[str] = Form(None),
     preferred_customer_url: Optional[str] = Form(None),
     distributor_url: Optional[str] = Form(None),
+    wp_author_name: Optional[str] = Form(None),
 ):
     """Save editable fields for one site to sites.yaml."""
     from config import save_site_field
@@ -567,6 +600,7 @@ async def config_save_site(
         "email_prefix": email_prefix,
         "preferred_customer_url": preferred_customer_url,
         "distributor_url": distributor_url,
+        "wp_author_name": wp_author_name or None,
     }
     for field, value in fields.items():
         if value is not None:
@@ -584,3 +618,41 @@ async def config_save_settings(
     from config import save_scheduler_settings
     save_scheduler_settings(email_interval, article_interval, keyword_interval)
     return RedirectResponse(url="/config?saved=settings", status_code=303)
+
+
+@app.post("/config/add-site")
+async def config_add_site(
+    slug: str = Form(...),
+    url: str = Form(...),
+    language: str = Form(...),
+    locale: str = Form(...),
+    platform: str = Form(...),
+    wp_api_url: Optional[str] = Form(None),
+    mautic_campaign_id: Optional[str] = Form(None),
+    email_prefix: Optional[str] = Form(None),
+    brevo_list_id: Optional[str] = Form(None),
+    preferred_customer_url: Optional[str] = Form(None),
+    distributor_url: Optional[str] = Form(None),
+    wp_author_name: Optional[str] = Form(None),
+):
+    """Add a new site to sites.yaml."""
+    from config import add_site
+    try:
+        add_site(
+            slug=slug.strip().replace("-", "_"),
+            url=url.strip().rstrip("/"),
+            language=language.strip(),
+            locale=locale.strip(),
+            platform=platform.strip(),
+            wp_api_url=wp_api_url.strip() if wp_api_url and wp_api_url.strip() else None,
+            mautic_campaign_id=int(mautic_campaign_id) if mautic_campaign_id and mautic_campaign_id.strip() else None,
+            email_prefix=email_prefix.strip() if email_prefix and email_prefix.strip() else None,
+            brevo_list_id=int(brevo_list_id) if brevo_list_id and brevo_list_id.strip() else None,
+            preferred_customer_url=preferred_customer_url.strip() if preferred_customer_url and preferred_customer_url.strip() else None,
+            distributor_url=distributor_url.strip() if distributor_url and distributor_url.strip() else None,
+            wp_author_name=wp_author_name.strip() if wp_author_name and wp_author_name.strip() else None,
+        )
+    except ValueError as exc:
+        # Slug already exists — redirect with error param
+        return RedirectResponse(url=f"/config?saved=error&msg={exc}", status_code=303)
+    return RedirectResponse(url="/config?saved=site_added", status_code=303)

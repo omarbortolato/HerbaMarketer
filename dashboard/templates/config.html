@@ -6,10 +6,22 @@
   <h1 class="text-2xl font-bold">Configurazione</h1>
 </div>
 
-{% if saved %}
+{% if saved == 'site' or saved == 'settings' %}
 <div class="mb-5 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
   ✅ Configurazione salvata.
   <span class="text-green-600">Le modifiche sono attive immediatamente. Per renderle permanenti dopo un redeploy, commita <code>config/sites.yaml</code> o <code>config/settings.yaml</code> su GitHub.</span>
+</div>
+{% elif saved == 'site_added' %}
+<div class="mb-5 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+  ✅ Nuovo sito aggiunto a <code>sites.yaml</code>. Ricorda di aggiungere le credenziali WP in <code>.env</code> e fare redeploy.
+</div>
+{% elif saved == 'error' %}
+<div class="mb-5 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+  ❌ Errore: il sito esiste già o i dati non sono validi.
+</div>
+{% elif saved %}
+<div class="mb-5 px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700">
+  ✅ Configurazione salvata.
 </div>
 {% endif %}
 
@@ -95,6 +107,14 @@
                  class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
         </div>
 
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Autore WP <span class="text-gray-400">(display name, es. "Elena")</span></label>
+          <input type="text" name="wp_author_name"
+                 value="{{ site.wp_author_name or '' }}"
+                 placeholder="Lascia vuoto = autore API"
+                 class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+        </div>
+
         <!-- Read-only fields -->
         <div>
           <span class="block text-xs text-gray-400 mb-1">WP API URL</span>
@@ -109,5 +129,83 @@
     </form>
   </div>
   {% endfor %}
+</div>
+
+<!-- Add new site -->
+<h2 class="text-lg font-semibold mt-10 mb-4">Aggiungi nuovo sito</h2>
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden mb-6">
+  <div class="px-5 py-4 border-b bg-gray-50">
+    <span class="font-semibold text-sm text-gray-600">Nuovo sito — dati obbligatori + opzionali</span>
+  </div>
+  <form method="POST" action="/config/add-site" class="px-5 py-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Slug <span class="text-red-400">*</span></label>
+        <input type="text" name="slug" required placeholder="es. herbago_es"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+        <p class="text-xs text-gray-400 mt-1">Senza spazi, usa _</p>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">URL sito <span class="text-red-400">*</span></label>
+        <input type="url" name="url" required placeholder="https://herbago.es"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Lingua <span class="text-red-400">*</span></label>
+        <input type="text" name="language" required placeholder="es"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Locale <span class="text-red-400">*</span></label>
+        <input type="text" name="locale" required placeholder="es-ES"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Piattaforma email <span class="text-red-400">*</span></label>
+        <select name="platform" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+          <option value="mautic">Mautic</option>
+          <option value="brevo">Brevo</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">WP API URL</label>
+        <input type="url" name="wp_api_url" placeholder="https://herbago.es/wp-json/wp/v2"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Mautic Campaign ID</label>
+        <input type="number" name="mautic_campaign_id"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Email Prefix Mautic</label>
+        <input type="text" name="email_prefix" placeholder="ES"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+      </div>
+      <div>
+        <label class="block text-xs text-gray-500 mb-1">Autore WP</label>
+        <input type="text" name="wp_author_name" placeholder="Elena"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+      </div>
+      <div class="lg:col-span-2">
+        <label class="block text-xs text-gray-500 mb-1">URL Cliente Privilegiato</label>
+        <input type="url" name="preferred_customer_url"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+      </div>
+      <div class="lg:col-span-2">
+        <label class="block text-xs text-gray-500 mb-1">URL Distributore</label>
+        <input type="url" name="distributor_url"
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+      </div>
+    </div>
+    <div class="text-xs text-gray-400 mb-3 bg-gray-50 rounded-lg p-3">
+      <strong>Nota:</strong> Le credenziali WP verranno lette da .env come
+      <code>WP_{SLUG}_USER</code> e <code>WP_{SLUG}_APP_PASSWORD</code>. Aggiungile in .env e fai redeploy.
+    </div>
+    <button type="submit"
+            class="bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+      + Aggiungi sito
+    </button>
+  </form>
 </div>
 {% endblock %}
