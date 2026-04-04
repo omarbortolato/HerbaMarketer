@@ -140,8 +140,11 @@ def run_email_ingestor(db) -> list[ContentTopic]:
         EnvironmentError: if INGESTOR_EMAIL or INGESTOR_PASSWORD not set.
         imaplib.IMAP4.error: on connection / authentication failure.
     """
-    ingestor_email = os.getenv("INGESTOR_EMAIL", "")
-    ingestor_password = os.getenv("INGESTOR_PASSWORD", "")
+    ingestor_email = os.getenv("INGESTOR_EMAIL", "").strip()
+    # Google App Passwords are displayed with spaces/non-breaking spaces for
+    # readability (e.g. "xxxx xxxx xxxx xxxx"), but the actual IMAP password
+    # must be the 16 alphanumeric characters without any whitespace.
+    ingestor_password = re.sub(r"[\s\xa0]", "", os.getenv("INGESTOR_PASSWORD", ""))
     imap_host = os.getenv("INGESTOR_IMAP_HOST", _IMAP_HOST_DEFAULT)
     imap_port = int(os.getenv("INGESTOR_IMAP_PORT", str(_IMAP_PORT_DEFAULT)))
 
