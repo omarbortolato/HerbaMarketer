@@ -498,8 +498,14 @@ async def cmd_syncemail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             f"Imposta INGESTOR_EMAIL e INGESTOR_PASSWORD nel .env"
         )
     except Exception as exc:
-        await update.message.reply_text(f"❌ Errore: {exc}")
-        log.error("syncemail_failed", error=str(exc))
+        import traceback
+        tb = traceback.format_exc()
+        short_tb = tb[-600:] if len(tb) > 600 else tb
+        await update.message.reply_text(
+            f"❌ Errore: {exc}\n\n<pre>{short_tb}</pre>",
+            parse_mode="HTML",
+        )
+        log.error("syncemail_failed", error=str(exc), traceback=tb)
     finally:
         db.close()
 
