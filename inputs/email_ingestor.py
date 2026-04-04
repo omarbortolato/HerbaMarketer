@@ -49,11 +49,17 @@ def _decode_header_str(raw: str | bytes, encoding: Optional[str] = None) -> str:
     return raw
 
 
+def _sanitize(text: str) -> str:
+    """Replace non-breaking spaces and other problematic Unicode with ASCII equivalents."""
+    return text.replace("\xa0", " ").replace("\u200b", "").strip()
+
+
 def _decode_subject(msg: email.message.Message) -> str:
     parts = decode_header(msg.get("Subject", ""))
-    return " ".join(
+    raw = " ".join(
         _decode_header_str(part, enc) for part, enc in parts
     ).strip()
+    return _sanitize(raw)
 
 
 def _extract_body(msg: email.message.Message) -> str:
@@ -74,7 +80,8 @@ def _extract_body(msg: email.message.Message) -> str:
         payload = msg.get_payload(decode=True)
         body = payload.decode(charset, errors="replace") if payload else ""
 
-    # Normalize whitespace / excessive blank lines
+    # Normalize whitespace / excessive blank lines / non-ASCII spaces
+    body = _sanitize(body)
     body = re.sub(r"\n{3,}", "\n\n", body.strip())
     return body[:_MAX_BODY_CHARS]
 
