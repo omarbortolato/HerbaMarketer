@@ -30,18 +30,18 @@ Architettura progettata per aggiungere nuovi siti modificando solo `config/sites
 ## Stack tecnologico
 
 - **Runtime:** Python 3.11+
-- **LLM:** Anthropic Claude API (`claude-sonnet-4-5`)
-- **SEO data:** DataForSEO API (keyword research) + Google Search Console API (opzionale)
+- **LLM:** Anthropic Claude API (`claude-sonnet-4-6`)
+- **SEO data:** DataForSEO API (keyword research)
 - **Email platform herbago:** Mautic API (https://broadcast.herbago.info/)
 - **Email platform herbashop.it:** Brevo API
 - **CMS:** WordPress REST API (tutti i siti)
-- **Immagini:** Ideogram API o DALL-E 3 (un prompt per articolo, immagine iper-realistica senza prodotto)
+- **Immagini:** DALL-E 3 HD (`quality="hd"`, `style="natural"`) → Ideogram fallback
 - **Notifiche:** Telegram Bot API (supervisione human-in-the-loop)
 - **Database:** SQLite (sviluppo Mac) / PostgreSQL (produzione Coolify)
-- **Web dashboard:** FastAPI + Jinja2 + TailwindCSS
-- **Scheduler:** APScheduler (in-process) con possibilità di esportare su Coolify
+- **Web dashboard:** FastAPI + Jinja2 + TailwindCSS CDN
+- **Scheduler:** APScheduler (in-process, processo separato `run_worker.py`)
 - **Config:** YAML per sito + .env per secrets
-- **Deploy:** Docker Compose (Mac per dev, Coolify per produzione)
+- **Deploy:** Docker Compose (Mac per dev, Coolify per produzione — auto-deploy su push main)
 
 ---
 
@@ -363,54 +363,75 @@ Se score < 70: rigetta e richiede rigenerazione.
 ## Dashboard Web (FastAPI)
 
 Pagine:
-- `/` — overview: tutti i siti, semaforo stato (verde/giallo/rosso), contatori
-- `/sites/{slug}` — dettaglio sito: email pubblicate, articoli, prossima run
-- `/topics` — backlog argomenti: filtrabile per stato, fonte, sito
-- `/content/{id}` — visualizza email/articolo generato con possibilità di edit
-- `/logs` — publish log con filtri
-- `/config` — view config siti (read-only nella UI, modifica su YAML)
+- `/` — overview: tutti i siti, semaforo stato (verde/giallo/rosso), contatori, bottoni Genera Email/Articolo con modal selezione siti
+- `/sites/{slug}` — dettaglio sito: email pubblicate, articoli, log recenti
+- `/topics` — backlog argomenti: filtri per stato/fonte, approva con modal product_url, cestino, ordinamento colonne
+- `/content/email/{id}` — preview HTML email_1 e email_2
+- `/content/article/{id}` — preview articolo: immagine, meta SEO, contenuto
+- `/logs` — publish log con filtri per sito/azione/tipo
+- `/config` — config siti editabile + form aggiungi nuovo sito
+- `/login`, `/logout` — autenticazione
+
+**Componenti JS notevoli:**
+- `job_modal.html` (partial) — modal selezione siti per Genera Email/Articolo, incluso in index.html e topics.html
+- Click-to-toggle tooltips sui semafori (non hover, evita bug di sparizione)
+- Modal approve topic con data-* attributes (evita bug di escaping caratteri speciali nei titoli)
 
 ---
 
 ## Priorità di sviluppo (fasi)
 
-### Fase 1 — MVP Email (2-3 settimane)
-- [ ] Setup progetto Python, Docker, database SQLite
-- [ ] Config loader (sites.yaml, .env)
-- [ ] content_agent: generazione coppia email per un sito (herbago.it)
-- [ ] validator_agent: controllo base
-- [ ] translator_agent: IT → FR, DE, EN
-- [ ] Mautic publisher: crea email con prefisso, associa campagna
-- [ ] Telegram bot: notifica + bottoni approva/rigetta
-- [ ] Scheduler: job ogni 15 giorni per sito
-- [ ] publish_log
+### Fase 1 — MVP Email ✅ COMPLETATA
+- [x] Setup progetto Python, Docker, database SQLite/PostgreSQL
+- [x] Config loader (sites.yaml, .env)
+- [x] content_agent: generazione coppia email per tutti i siti
+- [x] validator_agent: controllo base (score 0-100, soglia 70)
+- [x] translator_agent: IT → FR, DE, EN
+- [x] Mautic publisher: crea email con prefisso, associa campagna
+- [x] Brevo publisher: crea template per herbashop.it
+- [x] Telegram bot: notifica + bottoni approva/rigetta
+- [x] Scheduler: job ogni 15 giorni per sito
+- [x] publish_log
+- [x] Deploy Coolify con auto-deploy su push GitHub
 
-### Fase 2 — Articoli (2 settimane)
-- [ ] seo_agent: keyword research via DataForSEO
-- [ ] email_ingestor: Gmail IMAP per input email inoltrate
-- [ ] url_ingestor: scraping URL via BeautifulSoup
-- [ ] Telegram topic selection flow
-- [ ] WordPress publisher: bozza con immagine
-- [ ] Ideogram/DALL-E image generation
-- [ ] Controllo disponibilità prodotto per sito prima di pubblicare
+### Fase 2 — Articoli ✅ COMPLETATA
+- [x] seo_agent: keyword research via DataForSEO
+- [x] email_ingestor: Gmail IMAP (herbamarketerg@gmail.com)
+- [x] url_ingestor: scraping URL via BeautifulSoup
+- [x] Telegram topic selection flow
+- [x] WordPress publisher: bozza con immagine + Yoast meta + autore WP
+- [x] DALL-E 3 HD image generation (quality="hd", style="natural")
+- [x] Cross-site product URL matching via sitemap (find_equivalent_product_url)
+- [x] product_url per topic (impostabile da dashboard al momento dell'approvazione)
 
-### Fase 3 — Dashboard (1 settimana)
-- [ ] FastAPI app + template overview
-- [ ] Pagina dettaglio sito
-- [ ] Backlog topic management
-- [ ] Log viewer
-- [ ] Deploy su Coolify con Docker Compose
+### Fase 3 — Dashboard ✅ COMPLETATA
+- [x] FastAPI app + login (omar/emiliano)
+- [x] Overview con semafori stato sito (click-to-toggle tooltip + "Segna come risolto")
+- [x] Pagina dettaglio sito
+- [x] Backlog topic: filtri, approva con modal product_url, cestino, ordinamento
+- [x] Modal selezione siti per Genera Email / Genera Articolo
+- [x] Log viewer con filtri
+- [x] Config siti editabile + form aggiungi nuovo sito
+- [x] Auto-migrazione DB a startup (nuove colonne senza Alembic)
+- [x] Deploy su Coolify con Docker Compose
 
-### Fase 4 — herbashop.it (1 settimana)
-- [ ] Brevo publisher
-- [ ] WordPress publisher per herbashop.it
-- [ ] Integrazione nel flusso principale come sito aggiuntivo
+### Fase 4 — herbashop.it ✅ COMPLETATA
+- [x] Brevo publisher integrato nel flusso principale
+- [x] WordPress publisher per herbashop.it
+- [x] Integrazione nel flusso principale come sito aggiuntivo
 
-### Fase 5 — Out of scope (futuro)
-- Agente SEO avanzato con competitor analysis
-- Agente Business con report settimanale da Google Sheet ordini
-- Dashboard integrata con dati OMS/PIM
-- Agente Tech per audit link corrotti
+### Fase 5 — Miglioramenti in corso
+- [ ] **Sblocco topic "in_progress"**: bottone nella dashboard per resettare un topic bloccato ad "approved"
+- [ ] **URL detection email ingestor**: se il corpo email contiene un URL, chiama url_ingestor automaticamente
+- [ ] **Importazione contenuti esistenti**: sync WP e Mautic → la dashboard diventa centro di controllo completo
+- [ ] **Check deduplicazione topic**: warning prima di generare se argomento già trattato
+- [ ] **Piano editoriale Notion**: sync automatico pubblicazioni → database Notion con vista calendario
+- [ ] **Force publish dalla dashboard**: pubblica contenuti senza passare per Telegram
+- [ ] **SEO Health Check**: audit mensile articoli + ranking check per sito
+- [ ] **Analisi competitor**: gap analysis automatica → topic (source="competitor_gap")
+- [ ] **Content Refresh Agent**: identifica articoli datati, propone aggiornamento
+- [ ] **Google Ads Integration**: KPI campagne + correlazione con contenuti
+- [ ] **Business Report Agent**: ordini da Google Sheet → report Telegram ogni lunedì
 
 ---
 
@@ -464,6 +485,12 @@ IDEOGRAM_API_KEY=
 # oppure:
 OPENAI_API_KEY=
 
+# Email ingestor (IMAP)
+INGESTOR_EMAIL=herbamarketerg@gmail.com
+INGESTOR_PASSWORD=     # Google App Password 16 char (spazi rimossi automaticamente)
+INGESTOR_IMAP_HOST=imap.gmail.com
+INGESTOR_IMAP_PORT=993
+
 # Database
 DATABASE_URL=sqlite:///./herbamarketer.db
 # su Coolify: postgresql://user:pass@host/dbname
@@ -472,6 +499,9 @@ DATABASE_URL=sqlite:///./herbamarketer.db
 EMAIL_JOB_INTERVAL_DAYS=15
 ARTICLE_JOB_INTERVAL_DAYS=15
 KEYWORD_RESEARCH_INTERVAL_DAYS=30
+
+# Dashboard auth
+SESSION_SECRET_KEY=    # segreto per cookie di sessione (generare con: python3 -c "import secrets; print(secrets.token_hex(32))")
 ```
 
 ---
@@ -480,7 +510,13 @@ KEYWORD_RESEARCH_INTERVAL_DAYS=30
 
 - **Mautic naming convention:** `{PREFIX}_{NNN}_{argomento_breve}` es. `ITA_001_colazione_proteica`
 - **WordPress:** pubblica sempre come bozza (`status: draft`) finché non approvato da Telegram
-- **Prodotto non disponibile in un paese:** skippa il sito, logga, notifica su Telegram
+- **Prodotto non disponibile in un paese:** usa URL sito come fallback (NON salta il sito), logga warning su Telegram
 - **Articolo in italiano:** è sempre il master. Le traduzioni referenziano l'ID dell'articolo IT padre
-- **Rate limits:** Mautic e WordPress hanno rate limit — inserire delay 1s tra chiamate consecutive
-- **Backup:** database backup giornaliero su Google Drive via script (aggiungere in Fase 3)
+- **Rate limits:** Mautic e WordPress hanno rate limit — delay 1s tra chiamate consecutive
+- **Product URL:** impostabile per topic (campo product_url in ContentTopic). Se presente, find_equivalent_product_url() lo cerca in tutte le sitemap degli altri siti. Se assente, fallback su Formula 1 Herbalife.
+- **WP author:** configurabile per sito con wp_author_name in sites.yaml. La dashboard lo mostra in /config. Il publisher risolve l'ID WP via GET /wp/v2/users?search= e lo cachea per sessione.
+- **Migrazioni DB:** a ogni avvio della dashboard FastAPI, il lifespan handler esegue `create_tables()` + `ALTER TABLE IF NOT EXISTS` per nuove colonne. Non serve Alembic per aggiunte semplici.
+- **Email ingestor App Password:** Google App Passwords hanno spazi visuali (\xa0). Il codice li rimuove automaticamente: `re.sub(r"[\s\xa0]", "", password)`.
+- **Tooltip semafori:** usare JS click-to-toggle (non CSS hover) — con hover il tooltip sparisce prima che si possa cliccare il bottone "Segna come risolto".
+- **Modal e attributi HTML:** per passare dati variabili a funzioni JS inline, usare data-* attributes + `| e` filter (Jinja2 escape), NON interpolazione inline — evita bug con titoli contenenti virgolette o apostrofi.
+- **Brevo automazione:** i template vanno aggiunti manualmente a Scenario #9 su Brevo — non automatizzabile senza rischiare di corrompere la sequenza esistente di 26 email.
