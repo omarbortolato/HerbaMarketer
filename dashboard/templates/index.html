@@ -16,20 +16,14 @@
 <div class="bg-white rounded-xl border shadow-sm p-5 mb-8">
   <h2 class="font-semibold text-sm text-gray-600 uppercase tracking-wide mb-4">Avvia manualmente</h2>
   <div class="flex gap-3 flex-wrap">
-    <form method="POST" action="/run/email-job">
-      <button type="submit"
-              onclick="return confirm('Avvia email_job adesso? Userà il primo topic approved in coda.')"
-              class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
-        📧 Genera Email ora
-      </button>
-    </form>
-    <form method="POST" action="/run/article-job">
-      <button type="submit"
-              onclick="return confirm('Avvia article_job adesso? Userà il primo topic approved in coda.')"
-              class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
-        📝 Genera Articolo ora
-      </button>
-    </form>
+    <button type="button" onclick="openJobModal('email')"
+            class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+      📧 Genera Email ora
+    </button>
+    <button type="button" onclick="openJobModal('article')"
+            class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+      📝 Genera Articolo ora
+    </button>
     <a href="/topics?status=approved"
        class="flex items-center gap-2 border border-gray-300 text-gray-600 hover:border-herba hover:text-herba text-sm font-medium px-4 py-2 rounded-lg transition">
       📋 Topic approvati in coda
@@ -132,6 +126,9 @@ document.addEventListener('click', function(e) {
   <span><span class="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1"></span>Inattivo (30-60gg)</span>
   <span><span class="inline-block w-2 h-2 rounded-full bg-red-500 mr-1"></span>Inattivo o errori</span>
 </div>
+
+<!-- Job site-selection modal -->
+{% include "partials/job_modal.html" %}
 {% endblock %}
 
 {% block footer_extra %}{{ now.strftime('%Y-%m-%d %H:%M') }} UTC{% endblock %}

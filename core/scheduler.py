@@ -329,6 +329,7 @@ def _process_site_email_with_translations(
     master_site: SiteConfig,
     topic: ContentTopic,
     db,
+    site_slugs: Optional[list] = None,
 ) -> None:
     """
     Generate the IT master email pair, then translate and publish
@@ -358,9 +359,11 @@ def _process_site_email_with_translations(
     if not v1.passed or not v2.passed:
         raise ValueError(f"Master validation failed: {v1.issues + v2.issues}")
 
-    # Process all active sites (Mautic + Brevo)
+    # Process all active sites (Mautic + Brevo), optionally filtered by slug
     all_sites = get_all_active_sites()
     email_sites = [s for s in all_sites if s.platform in ("mautic", "brevo")]
+    if site_slugs:
+        email_sites = [s for s in email_sites if s.slug in site_slugs]
 
     for site_cfg in email_sites:
         try:
@@ -459,14 +462,18 @@ def _process_site_email_with_translations(
 # ---------------------------------------------------------------------------
 
 
-def email_job() -> None:
+def email_job(site_slugs: Optional[list] = None) -> None:
     """
     Main scheduled job: generate and publish one email pair per run,
     translated for all active Mautic sites.
 
     Triggered every EMAIL_JOB_INTERVAL_DAYS days.
+
+    Args:
+        site_slugs: optional list of site slugs to restrict publishing to.
+                    If None or empty, all active email sites are used.
     """
-    log.info("email_job_started", at=datetime.utcnow().isoformat())
+    log.info("email_job_started", at=datetime.utcnow().isoformat(), sites=site_slugs or "all")
 
     db = SessionLocal()
     try:
@@ -487,7 +494,7 @@ def email_job() -> None:
             raise ValueError("herbago_it not found in active sites — check sites.yaml")
 
         try:
-            _process_site_email_with_translations(it_site, topic, db)
+            _process_site_email_with_translations(it_site, topic, db, site_slugs=site_slugs or None)
             # If article was already done, both are done; otherwise mark email as done
             topic.status = "done" if original_status == "article_done" else "email_done"
             db.commit()
@@ -526,6 +533,7 @@ def _process_article_for_sites(
     image_url: Optional[str],
     master_article,
     db,
+    site_slugs: Optional[list] = None,
 ) -> list[dict]:
     """
     Translate master article (IT), validate, check product availability,
@@ -534,6 +542,8 @@ def _process_article_for_sites(
     settings = get_settings()
     all_sites = get_all_active_sites()
     wp_sites = [s for s in all_sites if s.wp_api_url]
+    if site_slugs:
+        wp_sites = [s for s in wp_sites if s.slug in site_slugs]
 
     results = []
     for site_cfg in wp_sites:
@@ -649,10 +659,14 @@ def _process_article_for_sites(
 # ---------------------------------------------------------------------------
 
 
-def article_job() -> None:
+def article_job(site_slugs: Optional[list] = None) -> None:
     """
     Scheduled job: generate and publish one article per run as WP draft,
     translated for all sites that have WordPress configured.
+
+    Args:
+        site_slugs: optional list of site slugs to restrict publishing to.
+                    If None or empty, all active WP sites are used.
 
     Flow:
       1. If no approved topic → send topic selection to Telegram and stop.
@@ -738,7 +752,7 @@ def article_job() -> None:
                 # Non-fatal — publish without image
 
             # --- Publish to all sites ---
-            draft_results = _process_article_for_sites(topic, image_url, master, db)
+            draft_results = _process_article_for_sites(topic, image_url, master, db, site_slugs=site_slugs or None)
 
             if draft_results:
                 notify_article_drafts_ready(topic.id, topic.title, draft_results)

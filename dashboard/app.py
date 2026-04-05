@@ -27,7 +27,7 @@ import secrets
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -307,6 +307,7 @@ async def overview(request: Request, triggered: Optional[str] = None, db: Sessio
         name="index.html",
         context={
             "sites": sites_data,
+            "active_sites": get_all_active_sites(),
             "total_pending": total_pending,
             "total_approved": total_approved,
             "total_emails": total_emails,
@@ -412,6 +413,7 @@ async def topics(
             "order": order,
             "statuses": ["pending", "approved", "email_done", "article_done", "done", "rejected", "in_progress"],
             "sources": ["manual", "seo_agent", "email_input", "url_input"],
+            "active_sites": get_all_active_sites(),
             "current_user": request.session.get("user"),
         },
     )
@@ -593,18 +595,28 @@ async def logs(
 
 
 @app.post("/run/email-job")
-async def run_email_job(background_tasks: BackgroundTasks):
-    """Manually trigger email_job in background."""
+async def run_email_job(
+    background_tasks: BackgroundTasks,
+    request: Request,
+    sites: List[str] = Form(default=[]),
+):
+    """Manually trigger email_job in background, optionally restricted to selected sites."""
     from core.scheduler import email_job
-    background_tasks.add_task(email_job)
+    site_slugs = sites if sites else None
+    background_tasks.add_task(email_job, site_slugs)
     return RedirectResponse(url="/?triggered=email", status_code=303)
 
 
 @app.post("/run/article-job")
-async def run_article_job(background_tasks: BackgroundTasks):
-    """Manually trigger article_job in background."""
+async def run_article_job(
+    background_tasks: BackgroundTasks,
+    request: Request,
+    sites: List[str] = Form(default=[]),
+):
+    """Manually trigger article_job in background, optionally restricted to selected sites."""
     from core.scheduler import article_job
-    background_tasks.add_task(article_job)
+    site_slugs = sites if sites else None
+    background_tasks.add_task(article_job, site_slugs)
     return RedirectResponse(url="/?triggered=article", status_code=303)
 
 

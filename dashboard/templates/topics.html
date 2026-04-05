@@ -10,20 +10,14 @@
 <!-- Manual trigger panel -->
 <div class="bg-white rounded-xl border shadow-sm p-4 mb-5 flex gap-3 flex-wrap items-center">
   <span class="text-xs text-gray-500 font-medium uppercase tracking-wide">Avvia ora:</span>
-  <form method="POST" action="/run/email-job">
-    <button type="submit"
-            onclick="return confirm('Avvia email_job? Usa il primo topic approved/article_done in coda.')"
-            class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
-      📧 Genera Email
-    </button>
-  </form>
-  <form method="POST" action="/run/article-job">
-    <button type="submit"
-            onclick="return confirm('Avvia article_job? Usa il primo topic approved/email_done in coda.')"
-            class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
-      📝 Genera Articolo
-    </button>
-  </form>
+  <button type="button" onclick="openJobModal('email')"
+          class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+    📧 Genera Email
+  </button>
+  <button type="button" onclick="openJobModal('article')"
+          class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-xs font-medium px-3 py-1.5 rounded-lg transition">
+    📝 Genera Articolo
+  </button>
   <span class="text-xs text-gray-400">Il job parte in background — ricevi notifica su Telegram al completamento.</span>
 </div>
 
@@ -194,6 +188,8 @@
   Nessun topic trovato con questi filtri.
 </div>
 {% endif %}
+
+{% include "partials/job_modal.html" %}
 
 <!-- Approve modal -->
 <div id="approve-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">

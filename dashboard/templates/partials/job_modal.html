@@ -1,0 +1,69 @@
+<!-- Job site-selection modal — included in index.html and topics.html -->
+<div id="job-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+    <h3 id="job-modal-title" class="font-semibold text-gray-800 mb-1"></h3>
+    <p class="text-xs text-gray-400 mb-4">Seleziona i siti su cui eseguire il job. Lascia tutto selezionato per tutti i siti.</p>
+
+    <form id="job-modal-form" method="POST">
+      <!-- Select/deselect all -->
+      <div class="flex items-center gap-2 mb-3 pb-3 border-b">
+        <input type="checkbox" id="job-select-all" checked
+               class="w-4 h-4 accent-herba cursor-pointer"
+               onchange="toggleAllSites(this.checked)">
+        <label for="job-select-all" class="text-sm font-medium text-gray-700 cursor-pointer">Tutti i siti</label>
+      </div>
+
+      <!-- Site checkboxes -->
+      <div class="space-y-2 mb-5" id="job-sites-list">
+        {% for site in active_sites %}
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="sites" value="{{ site.slug }}" checked
+                 class="job-site-cb w-4 h-4 accent-herba"
+                 onchange="syncSelectAll()">
+          <span class="text-sm text-gray-700">{{ site.slug }}</span>
+          <span class="text-xs text-gray-400">{{ site.url }}</span>
+        </label>
+        {% endfor %}
+      </div>
+
+      <div class="flex gap-3 justify-end">
+        <button type="button" onclick="closeJobModal()"
+                class="px-4 py-2 text-sm border rounded-lg text-gray-600 hover:bg-gray-50 transition">
+          Annulla
+        </button>
+        <button type="submit" id="job-modal-submit"
+                class="px-4 py-2 text-sm bg-herba text-white rounded-lg hover:bg-herba-dark transition font-medium">
+          Avvia job
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+var _jobLabels = { email: '📧 Genera Email', article: '📝 Genera Articolo' };
+var _jobActions = { email: '/run/email-job', article: '/run/article-job' };
+
+function openJobModal(type) {
+  document.getElementById('job-modal-title').textContent = _jobLabels[type];
+  document.getElementById('job-modal-form').action = _jobActions[type];
+  // Reset: all checked
+  document.querySelectorAll('.job-site-cb').forEach(function(cb) { cb.checked = true; });
+  document.getElementById('job-select-all').checked = true;
+  document.getElementById('job-modal').classList.remove('hidden');
+}
+function closeJobModal() {
+  document.getElementById('job-modal').classList.add('hidden');
+}
+function toggleAllSites(checked) {
+  document.querySelectorAll('.job-site-cb').forEach(function(cb) { cb.checked = checked; });
+}
+function syncSelectAll() {
+  var cbs = document.querySelectorAll('.job-site-cb');
+  var allChecked = Array.from(cbs).every(function(cb) { return cb.checked; });
+  document.getElementById('job-select-all').checked = allChecked;
+}
+document.getElementById('job-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeJobModal();
+});
+</script>
