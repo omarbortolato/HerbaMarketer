@@ -147,7 +147,10 @@
           <div class="flex gap-2">
             {% if topic.status == 'pending' %}
             <button type="button"
-                    onclick="openApprove({{ topic.id }}, {{ topic.title | tojson }}, {{ (topic.product_url or '') | tojson }})"
+                    data-id="{{ topic.id }}"
+                    data-title="{{ topic.title | e }}"
+                    data-url="{{ topic.product_url or '' | e }}"
+                    onclick="openApprove(this)"
                     class="text-xs px-2 py-1 bg-herba text-white rounded hover:bg-herba-dark transition">
               ✓ Approva
             </button>
@@ -220,10 +223,11 @@
 </div>
 
 <script>
-function openApprove(id, title, currentUrl) {
-  document.getElementById('approve-title').textContent = title;
+function openApprove(btn) {
+  var id = btn.dataset.id;
+  document.getElementById('approve-title').textContent = btn.dataset.title;
   document.getElementById('approve-form').action = '/topics/' + id + '/approve';
-  document.getElementById('approve-product-url').value = currentUrl || '';
+  document.getElementById('approve-product-url').value = btn.dataset.url || '';
   document.getElementById('approve-modal').classList.remove('hidden');
 }
 function closeApprove() {
