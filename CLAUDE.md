@@ -421,7 +421,7 @@ Pagine:
 - [x] Integrazione nel flusso principale come sito aggiuntivo
 
 ### Fase 5 — Miglioramenti in corso
-- [ ] **Sblocco topic "in_progress"**: bottone nella dashboard per resettare un topic bloccato ad "approved"
+- [x] **Sblocco topic "in_progress"**: bottone "⚠ Reset" visibile solo per topic con status=in_progress, POST /topics/{id}/reset → riporta a "approved". Con confirm dialog. Utile quando il worker crasha a metà job.
 - [ ] **URL detection email ingestor**: se il corpo email contiene un URL, chiama url_ingestor automaticamente
 - [x] **Importazione articoli esistenti da WP**: `publishers/wp_importer.py` — paginazione automatica, upsert per (wp_post_id, site_id), word_count calcolato strippando HTML, bottone "Sync articoli da WP" in /sites/{slug}, tabella importati ordinabile/filtrabile separata da articoli generati
 - [x] **Deduplicazione topic**: `GET /topics/{id}/duplicates` — estrae le prime 4 parole significative (>3 char) del topic, cerca con AND di LIKE su articles.title, mostra warning nel modal Approva con link WP e sito. Non blocca l'approvazione.

@@ -168,6 +168,14 @@
                 ↺ Riattiva
               </button>
             </form>
+            {% elif topic.status == 'in_progress' %}
+            <form method="POST" action="/topics/{{ topic.id }}/reset" class="inline"
+                  onsubmit="return confirm('Reset topic #{{ topic.id }} da in_progress ad approved?')">
+              <button type="submit"
+                      class="text-xs px-2 py-1 border border-orange-300 text-orange-500 rounded hover:bg-orange-50 transition">
+                ⚠ Reset
+              </button>
+            </form>
             {% endif %}
             <form method="POST" action="/topics/{{ topic.id }}/delete" class="inline"
                   onsubmit="return confirm('Eliminare il topic #{{ topic.id }}?')">

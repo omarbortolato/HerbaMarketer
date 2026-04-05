@@ -631,6 +631,17 @@ async def delete_topic(topic_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url="/topics", status_code=303)
 
 
+@app.post("/topics/{topic_id}/reset")
+async def reset_topic(topic_id: int, db: Session = Depends(get_db)):
+    """Reset a stuck in_progress topic back to approved so it can be retried."""
+    topic = db.query(ContentTopic).filter(ContentTopic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    topic.status = "approved"
+    db.commit()
+    return RedirectResponse(url="/topics", status_code=303)
+
+
 @app.post("/topics/add")
 async def add_topic(
     title: str = Form(...),
