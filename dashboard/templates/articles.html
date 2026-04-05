@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Articoli — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">Inventario Articoli</h1>
+  <span class="text-sm text-gray-400">{{ total }} articoli</span>
+</div>
+
+<!-- Filters -->
+<div class="bg-white rounded-xl border shadow-sm p-4 mb-5">
+  <div class="flex gap-4 flex-wrap items-end">
+
+    <!-- Site filter -->
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">Sito</label>
+      <select onchange="applyFilter('site', this.value)"
+              class="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+        <option value="" {% if not filter_site %}selected{% endif %}>Tutti i siti</option>
+        {% for s in active_sites %}
+        <option value="{{ s.slug }}" {% if filter_site == s.slug %}selected{% endif %}>{{ s.slug }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Source filter -->
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">Fonte</label>
+      <select onchange="applyFilter('source', this.value)"
+              class="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+        <option value="" {% if not filter_source %}selected{% endif %}>Tutti</option>
+        <option value="generated"         {% if filter_source == 'generated' %}selected{% endif %}>Generati da AI</option>
+        <option value="wordpress_import"  {% if filter_source == 'wordpress_import' %}selected{% endif %}>Importati da WP</option>
+      </select>
+    </div>
+
+    <!-- Status filter -->
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">Stato</label>
+      <select onchange="applyFilter('status', this.value)"
+              class="border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+        <option value="" {% if not filter_status %}selected{% endif %}>Tutti</option>
+        <option value="published"       {% if filter_status == 'published' %}selected{% endif %}>Pubblicato</option>
+        <option value="draft"           {% if filter_status == 'draft' %}selected{% endif %}>Bozza</option>
+        <option value="pending_approval"{% if filter_status == 'pending_approval' %}selected{% endif %}>In approvazione</option>
+        <option value="private"         {% if filter_status == 'private' %}selected{% endif %}>Privato</option>
+        <option value="failed"          {% if filter_status == 'failed' %}selected{% endif %}>Fallito</option>
+      </select>
+    </div>
+
+    {% if filter_site or filter_status or filter_source %}
+    <a href="/articles" class="text-xs text-gray-400 hover:text-herba mt-4">✕ Reset filtri</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Table -->
+{% macro sort_url(col) %}
+  {% set next_order = 'asc' if (sort == col and order == 'desc') else 'desc' %}
+  /articles?sort={{ col }}&order={{ next_order }}{% if filter_site %}&site={{ filter_site }}{% endif %}{% if filter_status %}&status={{ filter_status }}{% endif %}{% if filter_source %}&source={{ filter_source }}{% endif %}
+{%- endmacro %}
+{% macro sort_icon(col) %}{% if sort == col %}{{ '↑' if order == 'asc' else '↓' }}{% else %}<span class="opacity-30">↕</span>{% endif %}{% endmacro %}
+
+{% if article_list %}
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-3 text-left">
+          <a href="{{ sort_url('site') }}" class="hover:text-herba flex items-center gap-1">Sito {{ sort_icon('site') }}</a>
+        </th>
+        <th class="px-4 py-3 text-left">
+          <a href="{{ sort_url('title') }}" class="hover:text-herba flex items-center gap-1">Titolo {{ sort_icon('title') }}</a>
+        </th>
+        <th class="px-4 py-3 text-left">
+          <a href="{{ sort_url('wp_published_at') }}" class="hover:text-herba flex items-center gap-1">Pubblicato {{ sort_icon('wp_published_at') }}</a>
+        </th>
+        <th class="px-4 py-3 text-left">
+          <a href="{{ sort_url('word_count') }}" class="hover:text-herba flex items-center gap-1">Parole {{ sort_icon('word_count') }}</a>
+        </th>
+        <th class="px-4 py-3 text-left">
+          <a href="{{ sort_url('status') }}" class="hover:text-herba flex items-center gap-1">Stato {{ sort_icon('status') }}</a>
+        </th>
+        <th class="px-4 py-3 text-left">Fonte</th>
+        <th class="px-4 py-3 text-left">Link</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for row in article_list %}
+      {% set art = row.article %}
+      {% set s = row.site %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-3">
+          {% if s %}
+          <a href="/sites/{{ s.slug }}" class="text-xs font-medium text-herba hover:underline">{{ s.slug }}</a>
+          {% else %}
+          <span class="text-xs text-gray-400">—</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 max-w-xs">
+          <span class="block font-medium truncate" title="{{ art.title }}">{{ art.title or '—' }}</span>
+          {% if art.excerpt %}
+          <span class="block text-xs text-gray-400 truncate mt-0.5">{{ art.excerpt[:80] }}</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
+          {{ art.wp_published_at.strftime('%d/%m/%Y') if art.wp_published_at else
+             (art.published_at.strftime('%d/%m/%Y') if art.published_at else '—') }}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-500">
+          {{ art.word_count or '—' }}
+        </td>
+        <td class="px-4 py-3">
+          {% if art.status == 'published' %}
+            <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">live</span>
+          {% elif art.status == 'pending_approval' %}
+            <span class="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs">approvazione</span>
+          {% elif art.status == 'draft' %}
+            <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs">bozza</span>
+          {% elif art.status == 'private' %}
+            <span class="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-xs">privato</span>
+          {% elif art.status == 'failed' %}
+            <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs">fallito</span>
+          {% else %}
+            <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs">{{ art.status }}</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3">
+          {% if art.source == 'wordpress_import' %}
+            <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs">WP</span>
+          {% else %}
+            <span class="px-2 py-0.5 rounded-full bg-herba-light text-herba text-xs">AI</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs">
+          {% if art.wp_url %}
+          <a href="{{ art.wp_url }}" target="_blank" class="text-herba hover:underline">↗ WP</a>
+          {% elif art.wp_post_id and s %}
+          <a href="/content/article/{{ art.id }}" class="text-herba hover:underline">Vedi</a>
+          {% else %}
+          <span class="text-gray-300">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="bg-white rounded-xl border shadow-sm p-12 text-center text-gray-400">
+  Nessun articolo trovato con questi filtri.
+  {% if not filter_source %}
+  <div class="mt-3 text-sm">
+    Vai su <a href="/" class="text-herba hover:underline">un sito</a> e clicca
+    <b>Sync articoli da WP</b> per importare gli articoli esistenti.
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<script>
+function applyFilter(key, value) {
+  var url = new URL(window.location.href);
+  if (value) {
+    url.searchParams.set(key, value);
+  } else {
+    url.searchParams.delete(key);
+  }
+  // Reset to page 1 on filter change
+  url.searchParams.delete('page');
+  window.location.href = url.toString();
+}
+</script>
+{% endblock %}

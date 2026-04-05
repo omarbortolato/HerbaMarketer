@@ -33,7 +33,7 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Requ
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import text
+from sqlalchemy import nullsfirst, nullslast, text
 from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -484,6 +484,63 @@ async def topics(
             "statuses": ["pending", "approved", "email_done", "article_done", "done", "rejected", "in_progress"],
             "sources": ["manual", "seo_agent", "email_input", "url_input"],
             "active_sites": get_all_active_sites(),
+            "current_user": request.session.get("user"),
+        },
+    )
+
+
+@app.get("/articles", response_class=HTMLResponse)
+async def articles_view(
+    request: Request,
+    site: Optional[str] = None,
+    status: Optional[str] = None,
+    source: Optional[str] = None,
+    sort: Optional[str] = "wp_published_at",
+    order: Optional[str] = "desc",
+    db: Session = Depends(get_db),
+):
+    """Content inventory: all articles across all sites, filterable and sortable."""
+    query = db.query(Article, Site).join(Site, Article.site_id == Site.id, isouter=True)
+
+    if site:
+        query = query.filter(Site.slug == site)
+    if status:
+        query = query.filter(Article.status == status)
+    if source:
+        query = query.filter(Article.source == source)
+
+    _sort_cols = {
+        "title": Article.title,
+        "wp_published_at": Article.wp_published_at,
+        "word_count": Article.word_count,
+        "status": Article.status,
+        "site": Site.slug,
+        "created_at": Article.created_at,
+    }
+    sort_col = _sort_cols.get(sort, Article.wp_published_at)
+    if order == "desc":
+        query = query.order_by(sort_col.desc().nullslast())
+    else:
+        query = query.order_by(sort_col.asc().nullsfirst())
+
+    rows = query.all()
+    # rows is list of (Article, Site) tuples
+    article_list = [{"article": a, "site": s} for a, s in rows]
+
+    active_sites = get_all_active_sites()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="articles.html",
+        context={
+            "article_list": article_list,
+            "filter_site": site or "",
+            "filter_status": status or "",
+            "filter_source": source or "",
+            "sort": sort,
+            "order": order,
+            "active_sites": active_sites,
+            "total": len(article_list),
             "current_user": request.session.get("user"),
         },
     )
