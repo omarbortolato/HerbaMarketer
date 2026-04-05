@@ -429,11 +429,17 @@ async def reactivate_topic(topic_id: int, db: Session = Depends(get_db)):
 
 
 @app.post("/topics/{topic_id}/approve")
-async def approve_topic(topic_id: int, db: Session = Depends(get_db)):
+async def approve_topic(
+    topic_id: int,
+    product_url: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
     topic = db.query(ContentTopic).filter(ContentTopic.id == topic_id).first()
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
     topic.status = "approved"
+    if product_url and product_url.strip():
+        topic.product_url = product_url.strip()
     db.commit()
     return RedirectResponse(url="/topics", status_code=303)
 
@@ -444,6 +450,16 @@ async def reject_topic(topic_id: int, db: Session = Depends(get_db)):
     if not topic:
         raise HTTPException(status_code=404, detail="Topic not found")
     topic.status = "rejected"
+    db.commit()
+    return RedirectResponse(url="/topics", status_code=303)
+
+
+@app.post("/topics/{topic_id}/delete")
+async def delete_topic(topic_id: int, db: Session = Depends(get_db)):
+    topic = db.query(ContentTopic).filter(ContentTopic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(status_code=404, detail="Topic not found")
+    db.delete(topic)
     db.commit()
     return RedirectResponse(url="/topics", status_code=303)
 

@@ -146,12 +146,11 @@
         <td class="px-4 py-3">
           <div class="flex gap-2">
             {% if topic.status == 'pending' %}
-            <form method="POST" action="/topics/{{ topic.id }}/approve" class="inline">
-              <button type="submit"
-                      class="text-xs px-2 py-1 bg-herba text-white rounded hover:bg-herba-dark transition">
-                ✓ Approva
-              </button>
-            </form>
+            <button type="button"
+                    onclick="openApprove({{ topic.id }}, {{ topic.title | tojson }}, {{ (topic.product_url or '') | tojson }})"
+                    class="text-xs px-2 py-1 bg-herba text-white rounded hover:bg-herba-dark transition">
+              ✓ Approva
+            </button>
             <form method="POST" action="/topics/{{ topic.id }}/reject" class="inline">
               <button type="submit"
                       class="text-xs px-2 py-1 border border-red-300 text-red-500 rounded hover:bg-red-50 transition">
@@ -173,6 +172,13 @@
               </button>
             </form>
             {% endif %}
+            <form method="POST" action="/topics/{{ topic.id }}/delete" class="inline"
+                  onsubmit="return confirm('Eliminare il topic #{{ topic.id }}?')">
+              <button type="submit"
+                      class="text-xs px-2 py-1 text-gray-300 hover:text-red-500 transition" title="Elimina">
+                🗑
+              </button>
+            </form>
           </div>
         </td>
       </tr>
@@ -185,4 +191,46 @@
   Nessun topic trovato con questi filtri.
 </div>
 {% endif %}
+
+<!-- Approve modal -->
+<div id="approve-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+    <h3 class="font-semibold text-gray-800 mb-1">Approva topic</h3>
+    <p id="approve-title" class="text-sm text-gray-500 mb-4 truncate"></p>
+    <form id="approve-form" method="POST">
+      <div class="mb-4">
+        <label class="block text-xs text-gray-500 mb-1">URL Prodotto su herbago.it <span class="text-gray-400">(opzionale)</span></label>
+        <input type="url" id="approve-product-url" name="product_url"
+               placeholder="https://herbago.it/p/formula-1-..."
+               class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-herba">
+        <p class="text-xs text-gray-400 mt-1">Se lasci vuoto usa Formula 1 Herbalife come default.</p>
+      </div>
+      <div class="flex gap-3 justify-end">
+        <button type="button" onclick="closeApprove()"
+                class="px-4 py-2 text-sm border rounded-lg text-gray-600 hover:bg-gray-50 transition">
+          Annulla
+        </button>
+        <button type="submit"
+                class="px-4 py-2 text-sm bg-herba text-white rounded-lg hover:bg-herba-dark transition font-medium">
+          ✓ Approva
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openApprove(id, title, currentUrl) {
+  document.getElementById('approve-title').textContent = title;
+  document.getElementById('approve-form').action = '/topics/' + id + '/approve';
+  document.getElementById('approve-product-url').value = currentUrl || '';
+  document.getElementById('approve-modal').classList.remove('hidden');
+}
+function closeApprove() {
+  document.getElementById('approve-modal').classList.add('hidden');
+}
+document.getElementById('approve-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeApprove();
+});
+</script>
 {% endblock %}
