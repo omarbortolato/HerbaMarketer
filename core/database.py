@@ -147,7 +147,7 @@ class EmailPair(Base):
 
 class Article(Base):
     """
-    Generated blog article for a site/topic.
+    Generated or imported blog article for a site/topic.
     """
 
     __tablename__ = "articles"
@@ -159,12 +159,17 @@ class Article(Base):
     title: Optional[str] = Column(String, nullable=True)
     slug: Optional[str] = Column(String, nullable=True)
     content: Optional[str] = Column(Text, nullable=True)
+    excerpt: Optional[str] = Column(Text, nullable=True)              # WP excerpt / short description
     meta_title: Optional[str] = Column(String, nullable=True)
     meta_description: Optional[str] = Column(String, nullable=True)
     image_prompt: Optional[str] = Column(Text, nullable=True)
     image_url: Optional[str] = Column(String, nullable=True)
-    wp_post_id: Optional[int] = Column(Integer, nullable=True)        # WordPress post ID after publish
-    status: str = Column(String, default="draft")                     # "draft" | "pending_approval" | "published" | "failed"
+    wp_post_id: Optional[int] = Column(Integer, nullable=True)        # WordPress post ID
+    wp_url: Optional[str] = Column(String, nullable=True)             # Direct WP post URL
+    wp_published_at: Optional[datetime] = Column(DateTime, nullable=True)  # WP publication date
+    word_count: Optional[int] = Column(Integer, nullable=True)        # Computed from content
+    source: str = Column(String, default="generated")                 # "generated" | "wordpress_import"
+    status: str = Column(String, default="draft")                     # "draft" | "pending_approval" | "published" | "failed" | "imported"
     published_at: Optional[datetime] = Column(DateTime, nullable=True)
     created_at: datetime = Column(DateTime, default=func.now())
 

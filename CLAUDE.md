@@ -423,7 +423,7 @@ Pagine:
 ### Fase 5 — Miglioramenti in corso
 - [ ] **Sblocco topic "in_progress"**: bottone nella dashboard per resettare un topic bloccato ad "approved"
 - [ ] **URL detection email ingestor**: se il corpo email contiene un URL, chiama url_ingestor automaticamente
-- [ ] **Importazione contenuti esistenti**: sync WP e Mautic → la dashboard diventa centro di controllo completo
+- [x] **Importazione articoli esistenti da WP**: `publishers/wp_importer.py` — paginazione automatica, upsert per (wp_post_id, site_id), word_count calcolato strippando HTML, bottone "Sync articoli da WP" in /sites/{slug}, tabella importati ordinabile/filtrabile separata da articoli generati
 - [ ] **Check deduplicazione topic**: warning prima di generare se argomento già trattato
 - [ ] **Piano editoriale Notion**: sync automatico pubblicazioni → database Notion con vista calendario
 - [ ] **Force publish dalla dashboard**: pubblica contenuti senza passare per Telegram
@@ -516,6 +516,9 @@ SESSION_SECRET_KEY=    # segreto per cookie di sessione (generare con: python3 -
 - **Product URL:** impostabile per topic (campo product_url in ContentTopic). Se presente, find_equivalent_product_url() lo cerca in tutte le sitemap degli altri siti. Se assente, fallback su Formula 1 Herbalife.
 - **WP author:** configurabile per sito con wp_author_name in sites.yaml. La dashboard lo mostra in /config. Il publisher risolve l'ID WP via GET /wp/v2/users?search= e lo cachea per sessione.
 - **Migrazioni DB:** a ogni avvio della dashboard FastAPI, il lifespan handler esegue `create_tables()` + `ALTER TABLE IF NOT EXISTS` per nuove colonne. Non serve Alembic per aggiunte semplici.
+- **Article.source:** `"generated"` (default, articoli HerbaMarketer) vs `"wordpress_import"` (importati da WP). Le due sezioni nella site_detail sono separate. Gli articoli importati NON hanno topic_id.
+- **Article nuove colonne:** `excerpt`, `wp_url`, `wp_published_at`, `word_count`, `source` — aggiunte via migration automatica al startup.
+- **wp_importer status mapping:** WP `publish` → `published`, tutti gli altri valori (draft, private, ecc.) vengono mantenuti as-is. Il sync importa tutti gli status (publish, draft, private) per dare visibilità completa.
 - **Email ingestor App Password:** Google App Passwords hanno spazi visuali (\xa0). Il codice li rimuove automaticamente: `re.sub(r"[\s\xa0]", "", password)`.
 - **Tooltip semafori:** usare JS click-to-toggle (non CSS hover) — con hover il tooltip sparisce prima che si possa cliccare il bottone "Segna come risolto".
 - **Modal e attributi HTML:** per passare dati variabili a funzioni JS inline, usare data-* attributes + `| e` filter (Jinja2 escape), NON interpolazione inline — evita bug con titoli contenenti virgolette o apostrofi.

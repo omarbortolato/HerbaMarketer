@@ -61,6 +61,11 @@ async def lifespan(_app: FastAPI):
     # Add new columns to existing tables if missing (PostgreSQL IF NOT EXISTS)
     migrations = [
         "ALTER TABLE content_topics ADD COLUMN IF NOT EXISTS product_url VARCHAR",
+        "ALTER TABLE articles ADD COLUMN IF NOT EXISTS excerpt TEXT",
+        "ALTER TABLE articles ADD COLUMN IF NOT EXISTS wp_url VARCHAR",
+        "ALTER TABLE articles ADD COLUMN IF NOT EXISTS wp_published_at TIMESTAMP",
+        "ALTER TABLE articles ADD COLUMN IF NOT EXISTS word_count INTEGER",
+        "ALTER TABLE articles ADD COLUMN IF NOT EXISTS source VARCHAR DEFAULT 'generated'",
     ]
     try:
         with engine.connect() as conn:
@@ -320,8 +325,16 @@ async def overview(request: Request, triggered: Optional[str] = None, db: Sessio
 
 
 @app.get("/sites/{slug}", response_class=HTMLResponse)
-async def site_detail(slug: str, request: Request, db: Session = Depends(get_db)):
-    """Site detail: email pairs, articles, recent logs."""
+async def site_detail(
+    slug: str,
+    request: Request,
+    art_sort: Optional[str] = "wp_published_at",
+    art_order: Optional[str] = "desc",
+    art_filter: Optional[str] = None,
+    synced: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Site detail: email pairs, generated articles, imported articles, recent logs."""
     try:
         site_cfg = get_site_config(slug)
     except KeyError:
@@ -330,8 +343,17 @@ async def site_detail(slug: str, request: Request, db: Session = Depends(get_db)
     site_db = db.query(Site).filter(Site.slug == slug).first()
 
     email_pairs = []
-    articles = []
+    generated_articles = []
+    imported_articles = []
     recent_logs = []
+
+    _art_sort_cols = {
+        "title": Article.title,
+        "wp_published_at": Article.wp_published_at,
+        "word_count": Article.word_count,
+        "status": Article.status,
+        "created_at": Article.created_at,
+    }
 
     if site_db:
         email_pairs = (
@@ -341,13 +363,30 @@ async def site_detail(slug: str, request: Request, db: Session = Depends(get_db)
             .limit(20)
             .all()
         )
-        articles = (
+
+        # Generated articles (created by HerbaMarketer)
+        generated_articles = (
             db.query(Article)
-            .filter(Article.site_id == site_db.id)
+            .filter(Article.site_id == site_db.id, Article.source == "generated")
             .order_by(Article.created_at.desc())
             .limit(20)
             .all()
         )
+
+        # Imported articles from WP — sortable + filterable
+        imp_query = db.query(Article).filter(
+            Article.site_id == site_db.id,
+            Article.source == "wordpress_import",
+        )
+        if art_filter:
+            imp_query = imp_query.filter(Article.status == art_filter)
+        sort_col = _art_sort_cols.get(art_sort, Article.wp_published_at)
+        if art_order == "asc":
+            imp_query = imp_query.order_by(sort_col.asc())
+        else:
+            imp_query = imp_query.order_by(sort_col.desc())
+        imported_articles = imp_query.all()
+
         recent_logs = (
             db.query(PublishLog)
             .filter(PublishLog.site_id == site_db.id)
@@ -364,10 +403,41 @@ async def site_detail(slug: str, request: Request, db: Session = Depends(get_db)
             "site_db": site_db,
             "status": _site_status(slug, db)["status"],
             "email_pairs": email_pairs,
-            "articles": articles,
+            "articles": generated_articles,
+            "imported_articles": imported_articles,
+            "art_sort": art_sort,
+            "art_order": art_order,
+            "art_filter": art_filter or "",
+            "synced": synced,
             "recent_logs": recent_logs,
             "current_user": request.session.get("user"),
         },
+    )
+
+
+@app.post("/sites/{slug}/sync-articles")
+async def sync_articles(slug: str, background_tasks: BackgroundTasks):
+    """Trigger WordPress article import for a site in background."""
+    from publishers.wp_importer import import_existing_articles
+
+    def _run():
+        import structlog
+        _log = structlog.get_logger(__name__)
+        try:
+            stats = import_existing_articles(slug)
+            _log.info(
+                "wp_import_done",
+                site=slug,
+                inserted=stats.inserted,
+                updated=stats.updated,
+                skipped=stats.skipped,
+            )
+        except Exception as exc:
+            _log.error("wp_import_failed", site=slug, error=str(exc))
+
+    background_tasks.add_task(_run)
+    return RedirectResponse(
+        url=f"/sites/{slug}?synced=1", status_code=303
     )
 
 
