@@ -424,7 +424,7 @@ Pagine:
 - [ ] **Sblocco topic "in_progress"**: bottone nella dashboard per resettare un topic bloccato ad "approved"
 - [ ] **URL detection email ingestor**: se il corpo email contiene un URL, chiama url_ingestor automaticamente
 - [x] **Importazione articoli esistenti da WP**: `publishers/wp_importer.py` — paginazione automatica, upsert per (wp_post_id, site_id), word_count calcolato strippando HTML, bottone "Sync articoli da WP" in /sites/{slug}, tabella importati ordinabile/filtrabile separata da articoli generati
-- [ ] **Check deduplicazione topic**: warning prima di generare se argomento già trattato
+- [x] **Deduplicazione topic**: `GET /topics/{id}/duplicates` — estrae le prime 4 parole significative (>3 char) del topic, cerca con AND di LIKE su articles.title, mostra warning nel modal Approva con link WP e sito. Non blocca l'approvazione.
 - [ ] **Piano editoriale Notion**: sync automatico pubblicazioni → database Notion con vista calendario
 - [ ] **Force publish dalla dashboard**: pubblica contenuti senza passare per Telegram
 - [ ] **SEO Health Check**: audit mensile articoli + ranking check per sito

@@ -193,9 +193,17 @@
 
 <!-- Approve modal -->
 <div id="approve-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-  <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
     <h3 class="font-semibold text-gray-800 mb-1">Approva topic</h3>
     <p id="approve-title" class="text-sm text-gray-500 mb-4 truncate"></p>
+
+    <!-- Duplicate warning (hidden by default, shown by JS) -->
+    <div id="approve-dup-warning" class="hidden mb-4 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+      <p class="font-medium mb-2">⚠️ Argomento simile già pubblicato:</p>
+      <ul id="approve-dup-list" class="space-y-1 text-xs"></ul>
+      <p class="mt-2 text-yellow-700 text-xs">Puoi comunque procedere con l'approvazione.</p>
+    </div>
+
     <form id="approve-form" method="POST">
       <div class="mb-4">
         <label class="block text-xs text-gray-500 mb-1">URL Prodotto su herbago.it <span class="text-gray-400">(opzionale)</span></label>
@@ -224,7 +232,31 @@ function openApprove(btn) {
   document.getElementById('approve-title').textContent = btn.dataset.title;
   document.getElementById('approve-form').action = '/topics/' + id + '/approve';
   document.getElementById('approve-product-url').value = btn.dataset.url || '';
+  // Hide warning from previous open
+  document.getElementById('approve-dup-warning').classList.add('hidden');
+  document.getElementById('approve-dup-list').innerHTML = '';
   document.getElementById('approve-modal').classList.remove('hidden');
+  // Check duplicates async
+  fetch('/topics/' + id + '/duplicates')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.duplicates && data.duplicates.length > 0) {
+        var list = document.getElementById('approve-dup-list');
+        data.duplicates.forEach(function(d) {
+          var li = document.createElement('li');
+          var date = d.wp_published_at ? ' — ' + d.wp_published_at : '';
+          var site = d.site_slug ? '[' + d.site_slug + '] ' : '';
+          if (d.wp_url) {
+            li.innerHTML = site + '<a href="' + d.wp_url + '" target="_blank" class="underline">' + d.title + '</a>' + date;
+          } else {
+            li.textContent = site + d.title + date;
+          }
+          list.appendChild(li);
+        });
+        document.getElementById('approve-dup-warning').classList.remove('hidden');
+      }
+    })
+    .catch(function() {}); // silently ignore network errors
 }
 function closeApprove() {
   document.getElementById('approve-modal').classList.add('hidden');

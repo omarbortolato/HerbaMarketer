@@ -557,6 +557,44 @@ async def reactivate_topic(topic_id: int, db: Session = Depends(get_db)):
     return RedirectResponse(url="/topics", status_code=303)
 
 
+@app.get("/topics/{topic_id}/duplicates")
+async def check_topic_duplicates(topic_id: int, db: Session = Depends(get_db)):
+    """
+    Return articles with titles similar to the given topic.
+    Uses the first 4 significant words (>3 chars) of the topic title
+    as LIKE conditions (all must match — AND logic).
+    """
+    from fastapi.responses import JSONResponse
+
+    topic = db.query(ContentTopic).filter(ContentTopic.id == topic_id).first()
+    if not topic:
+        return JSONResponse({"duplicates": []})
+
+    # Extract first 4 words longer than 3 chars (skip common short words)
+    words = [w for w in topic.title.lower().split() if len(w) > 3][:4]
+    if not words:
+        return JSONResponse({"duplicates": []})
+
+    query = db.query(Article, Site).join(Site, Article.site_id == Site.id, isouter=True)
+    for word in words:
+        query = query.filter(Article.title.ilike(f"%{word}%"))
+
+    rows = query.limit(5).all()
+
+    duplicates = []
+    for art, site in rows:
+        duplicates.append({
+            "id": art.id,
+            "title": art.title or "",
+            "site_slug": site.slug if site else "",
+            "wp_url": art.wp_url or "",
+            "wp_published_at": art.wp_published_at.strftime("%d/%m/%Y") if art.wp_published_at else "",
+            "status": art.status or "",
+        })
+
+    return JSONResponse({"duplicates": duplicates})
+
+
 @app.post("/topics/{topic_id}/approve")
 async def approve_topic(
     topic_id: int,
