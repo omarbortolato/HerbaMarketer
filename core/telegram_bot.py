@@ -521,10 +521,12 @@ async def cmd_ga4sync(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         for slug, r in results.items():
             if r.get("success"):
                 d = r["data"]
+                rev = d.get("revenue")
+                rev_str = f"€{rev:.0f}" if rev is not None else "€—"
                 lines.append(
-                    f"✅ <b>{slug}</b>: {d.get('sessions', '?')} sessioni, "
-                    f"{d.get('pageviews', '?')} pageviews, "
-                    f"€{d.get('revenue', '?'):.0f} revenue"
+                    f"✅ <b>{slug}</b>: {d.get('sessions') or '?'} sessioni, "
+                    f"{d.get('pageviews') or '?'} pageviews, "
+                    f"{rev_str} revenue"
                 )
             else:
                 err = r.get("error", "unknown")
