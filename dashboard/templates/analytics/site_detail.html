@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Analytics — {{ site.slug }} — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <div>
+    <a href="/analytics" class="text-xs text-gray-400 hover:text-herba">← Tutti i siti</a>
+    <h1 class="text-2xl font-bold mt-1">{{ site.slug }} — Analytics</h1>
+    <p class="text-sm text-gray-500">{{ site.url }} · {{ site.locale }}</p>
+  </div>
+  <form method="POST" action="/analytics/{{ site.slug }}/sync">
+    <button type="submit"
+            class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+      ↺ Forza sync
+    </button>
+  </form>
+</div>
+
+{% if not ga4_available %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-xl p-5 mb-6 text-yellow-800 text-sm">
+  ⚠️ Nessun <code>ga4_property_id</code> configurato per questo sito. Aggiorna <code>config/sites.yaml</code>.
+</div>
+{% endif %}
+
+<!-- KPI Cards -->
+{% if snap %}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Sessioni</p>
+    <p class="text-2xl font-bold text-gray-800">{{ snap.sessions | int if snap.sessions else '—' }}</p>
+    <p class="text-xs text-gray-400 mt-1">ultimi 30gg</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Utenti Totali</p>
+    <p class="text-2xl font-bold text-gray-800">{{ snap.total_users | int if snap.total_users else '—' }}</p>
+    <p class="text-xs text-gray-400 mt-1">di cui {{ snap.new_users | int if snap.new_users else '?' }} nuovi</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Revenue</p>
+    <p class="text-2xl font-bold text-gray-800">{% if snap.revenue %}€{{ "%.0f"|format(snap.revenue) }}{% else %}—{% endif %}</p>
+    <p class="text-xs text-gray-400 mt-1">AOV: {% if snap.avg_order_value %}€{{ "%.2f"|format(snap.avg_order_value) }}{% else %}—{% endif %}</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Abbandono carrello</p>
+    {% if snap.cart_abandonment_rate is not none %}
+      {% set pct = (snap.cart_abandonment_rate * 100) | round(1) %}
+      <p class="text-2xl font-bold {% if pct < 60 %}text-green-600{% elif pct < 75 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ pct }}%</p>
+    {% else %}
+      <p class="text-2xl font-bold text-gray-800">—</p>
+    {% endif %}
+    <p class="text-xs text-gray-400 mt-1">{% if snap.returning_customer_rate is not none %}Returning: {{ (snap.returning_customer_rate * 100) | round(1) }}%{% endif %}</p>
+  </div>
+</div>
+
+<!-- Extra stats row -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Pageviews</p>
+    <p class="text-xl font-bold text-gray-800">{{ snap.pageviews | int if snap.pageviews else '—' }}</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Engagement rate</p>
+    <p class="text-xl font-bold text-gray-800">{% if snap.engagement_rate is not none %}{{ (snap.engagement_rate * 100) | round(1) }}%{% else %}—{% endif %}</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Durata media sessione</p>
+    <p class="text-xl font-bold text-gray-800">{% if snap.avg_session_duration %}{{ (snap.avg_session_duration / 60) | round(1) }}m{% else %}—{% endif %}</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Acquisti</p>
+    <p class="text-xl font-bold text-gray-800">{{ snap.purchases | int if snap.purchases else '—' }}</p>
+    <p class="text-xs text-gray-400 mt-1">Add to cart: {{ snap.add_to_carts | int if snap.add_to_carts else '—' }}</p>
+  </div>
+</div>
+{% else %}
+<div class="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 mb-8">
+  Nessun snapshot disponibile. Clicca "Forza sync" per recuperare i dati da GA4.
+</div>
+{% endif %}
+
+<!-- Top Pages -->
+{% if top_pages %}
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden mb-6">
+  <div class="px-5 py-3 border-b bg-gray-50">
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Top 10 Pagine (30gg)</h2>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-2 text-left">Pagina</th>
+        <th class="px-4 py-2 text-right">Sessioni</th>
+        <th class="px-4 py-2 text-right">Pageviews</th>
+        <th class="px-4 py-2 text-right">Durata media</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for page in top_pages %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-2 max-w-xs">
+          <a href="{{ site.url }}{{ page.page_path }}" target="_blank"
+             class="text-herba hover:underline truncate block max-w-xs" title="{{ page.page_path }}">
+            {{ page.page_path }}
+          </a>
+          <span class="text-xs text-gray-400 truncate block">{{ page.page_title }}</span>
+        </td>
+        <td class="px-4 py-2 text-right font-medium">{{ page.sessions }}</td>
+        <td class="px-4 py-2 text-right text-gray-600">{{ page.pageviews }}</td>
+        <td class="px-4 py-2 text-right text-gray-600">{{ (page.avg_session_duration / 60) | round(1) }}m</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<!-- Traffic Sources -->
+{% if traffic_sources %}
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden mb-6">
+  <div class="px-5 py-3 border-b bg-gray-50">
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Fonti di traffico (30gg)</h2>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-2 text-left">Canale</th>
+        <th class="px-4 py-2 text-right">Sessioni</th>
+        <th class="px-4 py-2 text-right">Nuovi utenti</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for src in traffic_sources %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-2 font-medium">{{ src.channel }}</td>
+        <td class="px-4 py-2 text-right">{{ src.sessions }}</td>
+        <td class="px-4 py-2 text-right text-gray-600">{{ src.new_users }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{% if request.query_params.get('syncing') %}
+<div class="fixed bottom-6 right-6 bg-herba text-white text-sm px-4 py-3 rounded-xl shadow-lg">
+  ↺ Sync in background — aggiorna la pagina tra qualche secondo.
+</div>
+{% endif %}
+{% endblock %}

@@ -25,6 +25,7 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    UniqueConstraint,
     create_engine,
     func,
 )
@@ -86,6 +87,7 @@ class Site(Base):
     articles = relationship("Article", back_populates="site")
     publish_logs = relationship("PublishLog", back_populates="site")
     keyword_snapshots = relationship("KeywordSnapshot", back_populates="site")
+    analytics_snapshots = relationship("AnalyticsSnapshot", back_populates="site")
 
     def __repr__(self) -> str:
         return f"<Site slug={self.slug!r} lang={self.language!r}>"
@@ -240,6 +242,53 @@ class KeywordSnapshot(Base):
 
     def __repr__(self) -> str:
         return f"<KeywordSnapshot keyword={self.keyword!r} date={self.snapshot_date}>"
+
+
+class AnalyticsSnapshot(Base):
+    """
+    Daily GA4 analytics snapshot per site.
+    Upserted on (site_id, snapshot_date, period_days) — one row per period per day.
+    """
+
+    __tablename__ = "analytics_snapshots"
+    __table_args__ = (
+        UniqueConstraint("site_id", "snapshot_date", "period_days", name="uq_analytics_snapshot"),
+    )
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    site_id: Optional[int] = Column(Integer, ForeignKey("sites.id"), nullable=True)
+    snapshot_date: date = Column(Date, nullable=False)
+    period_days: int = Column(Integer, nullable=False, default=30)
+
+    # Traffic
+    sessions: Optional[int] = Column(Integer, nullable=True)
+    total_users: Optional[int] = Column(Integer, nullable=True)
+    new_users: Optional[int] = Column(Integer, nullable=True)
+    engagement_rate: Optional[float] = Column(Float, nullable=True)
+    avg_session_duration: Optional[float] = Column(Float, nullable=True)
+    pageviews: Optional[int] = Column(Integer, nullable=True)
+
+    # Ecommerce
+    purchases: Optional[int] = Column(Integer, nullable=True)
+    revenue: Optional[float] = Column(Float, nullable=True)
+    avg_order_value: Optional[float] = Column(Float, nullable=True)
+    add_to_carts: Optional[int] = Column(Integer, nullable=True)
+    checkouts: Optional[int] = Column(Integer, nullable=True)
+    cart_abandonment_rate: Optional[float] = Column(Float, nullable=True)
+    returning_customer_rate: Optional[float] = Column(Float, nullable=True)
+
+    # Aggregated breakdowns stored as JSON
+    traffic_sources: Optional[dict] = Column(JSON, nullable=True)   # list of {channel, sessions, new_users}
+    raw_overview: Optional[dict] = Column(JSON, nullable=True)
+    raw_ecommerce: Optional[dict] = Column(JSON, nullable=True)
+
+    created_at: datetime = Column(DateTime, default=func.now())
+
+    # Relationships
+    site = relationship("Site", back_populates="analytics_snapshots")
+
+    def __repr__(self) -> str:
+        return f"<AnalyticsSnapshot site_id={self.site_id} date={self.snapshot_date} period={self.period_days}d>"
 
 
 # ---------------------------------------------------------------------------

@@ -510,6 +510,34 @@ async def cmd_syncemail(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         db.close()
 
 
+async def cmd_ga4sync(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/ga4sync — manually trigger GA4 analytics sync for all sites."""
+    from core.analytics_sync import sync_all_sites_analytics
+
+    await update.message.reply_text("📊 GA4 sync in corso...")
+    try:
+        results = sync_all_sites_analytics()
+        lines = ["<b>GA4 Sync completato:</b>\n"]
+        for slug, r in results.items():
+            if r.get("success"):
+                d = r["data"]
+                lines.append(
+                    f"✅ <b>{slug}</b>: {d.get('sessions', '?')} sessioni, "
+                    f"{d.get('pageviews', '?')} pageviews, "
+                    f"€{d.get('revenue', '?'):.0f} revenue"
+                )
+            else:
+                err = r.get("error", "unknown")
+                if err == "no ga4_property_id configured":
+                    lines.append(f"⏭ <b>{slug}</b>: nessun property ID configurato")
+                else:
+                    lines.append(f"❌ <b>{slug}</b>: {err}")
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    except Exception as exc:
+        await update.message.reply_text(f"❌ Errore GA4 sync: {exc}")
+        log.error("ga4sync_telegram_failed", error=str(exc))
+
+
 async def handle_url_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle plain text messages that contain a URL — ingest as topic."""
     import re
@@ -734,6 +762,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("sites", cmd_sites))
     app.add_handler(CommandHandler("report", cmd_report))
     app.add_handler(CommandHandler("syncemail", cmd_syncemail))
+    app.add_handler(CommandHandler("ga4sync", cmd_ga4sync))
     app.add_handler(CallbackQueryHandler(handle_callback))
     # URL messages: intercept plain text containing https?:// links
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url_message))

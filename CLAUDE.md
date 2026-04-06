@@ -506,6 +506,57 @@ SESSION_SECRET_KEY=    # segreto per cookie di sessione (generare con: python3 -
 
 ---
 
+## Google Analytics 4 — Integrazione
+
+### Architettura
+
+- **`core/ga4_client.py`** — `GA4Client(property_id)`: wrapper attorno a `google.analytics.data_v1beta.BetaAnalyticsDataClient`
+  - Credential loading: 1) env var `GOOGLE_CREDENTIALS_JSON` (base64 JSON) — per Coolify; 2) file `GA4_CREDENTIALS_PATH` — per dev locale
+  - Metodi: `get_site_overview`, `get_ecommerce_overview`, `get_returning_customers`, `get_top_pages`, `get_traffic_sources`, `get_article_performance`
+  - Skip automatico se `ga4_property_id` è `None` o `"DA_AGGIUNGERE"`
+  - Ogni metodo è in try/except — mai crasha il processo principale
+
+- **`core/analytics_sync.py`** — `sync_site_analytics(slug)` / `sync_all_sites_analytics()`: fetcha GA4 e fa upsert di `AnalyticsSnapshot` (unique su site_id + snapshot_date + period_days=30)
+
+- **`core/database.py`** — modello `AnalyticsSnapshot`: sessions, total_users, new_users, engagement_rate, avg_session_duration, pageviews, purchases, revenue, avg_order_value, add_to_carts, checkouts, cart_abandonment_rate, returning_customer_rate, traffic_sources (JSON), raw_overview (JSON)
+
+- **`core/scheduler.py`** — `ga4_sync_job()` via `CronTrigger(hour=6)`: sync giornaliero alle 06:00, notifica Telegram solo su errore
+
+- **Telegram** — `/ga4sync`: sync manuale con risposta per-sito (sessioni/pageviews/revenue)
+
+- **Dashboard** — `/analytics` (overview tabella + bar chart Chart.js), `/analytics/{slug}` (KPI cards + top pages + traffic sources, live con cache 1h), `POST /analytics/{slug}/sync` (forza sync), `GET /api/article/{id}/analytics` (lazy load performance articolo 90gg)
+
+- **`dashboard/templates/analytics/`** — `index.html`, `site_detail.html`
+
+- **`dashboard/templates/site_detail.html`** — colonna "Perf. 90gg" con bottone 📊 che carica AJAX da `/api/article/{id}/analytics`
+
+### Configurazione GA4 per sito
+
+```yaml
+# config/sites.yaml
+herbago_it:
+  ga4_property_id: "489961908"   # numeric property ID (GA4 > Admin > Property Settings)
+herbago_co_uk:
+  ga4_property_id: "DA_AGGIUNGERE"   # placeholder = sito skippato
+```
+
+### Credenziali (service account con Analytics Data API abilitata)
+
+```bash
+# Sviluppo locale
+GA4_CREDENTIALS_PATH=./google_credentials.json
+
+# Coolify / produzione (nessun file mount)
+GOOGLE_CREDENTIALS_JSON=$(base64 -i google_credentials.json | tr -d '\n')
+```
+
+### Metriche calcolate
+
+- `cart_abandonment_rate = 1 - (checkouts / add_to_carts)` — calcolato in Python (non da GA4)
+- `avg_order_value = revenue / purchases`
+
+---
+
 ## Note operative
 
 - **Mautic naming convention:** `{PREFIX}_{NNN}_{argomento_breve}` es. `ITA_001_colazione_proteica`

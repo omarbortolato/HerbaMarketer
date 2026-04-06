@@ -197,6 +197,7 @@
             </a>
           </th>
           <th class="px-4 py-3 text-left">Link WP</th>
+          <th class="px-4 py-3 text-left">Perf. 90gg</th>
         </tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
@@ -231,6 +232,14 @@
                class="text-herba hover:underline text-xs">↗ Apri</a>
             {% else %}
             <span class="text-gray-300 text-xs">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-xs" id="perf-{{ art.id }}">
+            {% if art.wp_url %}
+            <button type="button" onclick="loadArticlePerf({{ art.id }})"
+                    class="text-herba hover:underline text-xs" title="Carica dati GA4">📊</button>
+            {% else %}
+            <span class="text-gray-300">—</span>
             {% endif %}
           </td>
         </tr>
@@ -286,4 +295,32 @@
   </div>
 </div>
 {% endif %}
+
+<script>
+function loadArticlePerf(articleId) {
+  var cell = document.getElementById('perf-' + articleId);
+  if (!cell) return;
+  cell.innerHTML = '<span class="text-gray-400 animate-pulse">...</span>';
+  fetch('/api/article/' + articleId + '/analytics')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.error) {
+        cell.innerHTML = '<span class="text-gray-300" title="' + d.error + '">n/d</span>';
+        return;
+      }
+      var sessions = d.sessions || 0;
+      var pvs = d.pageviews || 0;
+      var dur = d.avg_session_duration ? (d.avg_session_duration / 60).toFixed(1) + 'm' : '—';
+      cell.innerHTML =
+        '<span class="text-gray-700 font-medium">' + sessions + '</span>'
+        + '<span class="text-gray-400 ml-1">sess</span>'
+        + ' · <span class="text-gray-700">' + pvs + '</span>'
+        + '<span class="text-gray-400 ml-1">pv</span>'
+        + ' · ' + dur;
+    })
+    .catch(function() {
+      cell.innerHTML = '<span class="text-red-400 text-xs">errore</span>';
+    });
+}
+</script>
 {% endblock %}

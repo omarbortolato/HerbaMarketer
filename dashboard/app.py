@@ -40,6 +40,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from config import get_all_active_sites, get_site_config
 from core.database import (
+    AnalyticsSnapshot,
     Article,
     ContentTopic,
     EmailPair,
@@ -51,6 +52,10 @@ from core.database import (
     get_db,
 )
 from core.database import create_tables
+
+# In-memory cache for live GA4 calls: {cache_key: (timestamp, data)}
+import time as _time
+_analytics_cache: dict = {}
 
 
 @asynccontextmanager
@@ -887,3 +892,178 @@ async def config_add_site(
         # Slug already exists — redirect with error param
         return RedirectResponse(url=f"/config?saved=error&msg={exc}", status_code=303)
     return RedirectResponse(url="/config?saved=site_added", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Analytics routes
+# ---------------------------------------------------------------------------
+
+_ANALYTICS_CACHE_TTL = 3600  # 1 hour
+
+
+def _cache_get(key: str):
+    entry = _analytics_cache.get(key)
+    if entry and (_time.time() - entry[0]) < _ANALYTICS_CACHE_TTL:
+        return entry[1]
+    return None
+
+
+def _cache_set(key: str, data):
+    _analytics_cache[key] = (_time.time(), data)
+
+
+@app.get("/analytics", response_class=HTMLResponse)
+async def analytics_overview(request: Request, db: Session = Depends(get_db)):
+    """Overview analytics: latest 30-day snapshot per site."""
+    user = request.session.get("user")
+    active_sites = get_all_active_sites()
+
+    rows = []
+    for site_cfg in active_sites:
+        site_db = db.query(Site).filter(Site.slug == site_cfg.slug).first()
+        snap = None
+        if site_db:
+            snap = (
+                db.query(AnalyticsSnapshot)
+                .filter(
+                    AnalyticsSnapshot.site_id == site_db.id,
+                    AnalyticsSnapshot.period_days == 30,
+                )
+                .order_by(AnalyticsSnapshot.snapshot_date.desc())
+                .first()
+            )
+        rows.append({"site": site_cfg, "snap": snap})
+
+    return templates.TemplateResponse(
+        "analytics/index.html",
+        {
+            "request": request,
+            "current_user": user,
+            "rows": rows,
+        },
+    )
+
+
+@app.get("/analytics/{site_slug}", response_class=HTMLResponse)
+async def analytics_site_detail(
+    site_slug: str, request: Request, db: Session = Depends(get_db)
+):
+    """Per-site analytics detail with live top pages and traffic sources (cached 1h)."""
+    user = request.session.get("user")
+
+    try:
+        site_cfg = get_site_config(site_slug)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    site_db = db.query(Site).filter(Site.slug == site_slug).first()
+    snap = None
+    if site_db:
+        snap = (
+            db.query(AnalyticsSnapshot)
+            .filter(
+                AnalyticsSnapshot.site_id == site_db.id,
+                AnalyticsSnapshot.period_days == 30,
+            )
+            .order_by(AnalyticsSnapshot.snapshot_date.desc())
+            .first()
+        )
+
+    # Live data (cached 1h)
+    top_pages = []
+    traffic_sources = []
+    ga4_available = bool(
+        site_cfg.ga4_property_id and site_cfg.ga4_property_id != "DA_AGGIUNGERE"
+    )
+    if ga4_available:
+        cache_key_pages = f"top_pages:{site_slug}"
+        cache_key_sources = f"traffic_sources:{site_slug}"
+        top_pages = _cache_get(cache_key_pages)
+        traffic_sources = _cache_get(cache_key_sources)
+        if top_pages is None or traffic_sources is None:
+            from core.ga4_client import GA4Client
+            client = GA4Client(site_cfg.ga4_property_id)
+            if client.available:
+                top_pages = client.get_top_pages(period_days=30)
+                traffic_sources = client.get_traffic_sources(period_days=30)
+                _cache_set(cache_key_pages, top_pages)
+                _cache_set(cache_key_sources, traffic_sources)
+            else:
+                top_pages = top_pages or []
+                traffic_sources = traffic_sources or []
+
+    return templates.TemplateResponse(
+        "analytics/site_detail.html",
+        {
+            "request": request,
+            "current_user": user,
+            "site": site_cfg,
+            "snap": snap,
+            "top_pages": top_pages,
+            "traffic_sources": traffic_sources,
+            "ga4_available": ga4_available,
+        },
+    )
+
+
+@app.post("/analytics/{site_slug}/sync")
+async def analytics_sync_site(
+    site_slug: str,
+    background_tasks: BackgroundTasks,
+    request: Request,
+):
+    """Force a GA4 sync for one site (runs in background)."""
+    from core.analytics_sync import sync_site_analytics
+
+    def _do_sync():
+        sync_site_analytics(site_slug)
+        # Invalidate cache
+        for key in list(_analytics_cache.keys()):
+            if key.endswith(f":{site_slug}"):
+                _analytics_cache.pop(key, None)
+
+    background_tasks.add_task(_do_sync)
+    return RedirectResponse(url=f"/analytics/{site_slug}?syncing=1", status_code=303)
+
+
+@app.get("/api/article/{article_id}/analytics")
+async def api_article_analytics(article_id: int, db: Session = Depends(get_db)):
+    """Return GA4 performance for a specific article (lazy-loaded by the UI)."""
+    from fastapi.responses import JSONResponse
+
+    article = db.query(Article).filter(Article.id == article_id).first()
+    if not article or not article.wp_url:
+        return JSONResponse({"error": "article not found or no WP url"}, status_code=404)
+
+    site_db = db.query(Site).filter(Site.id == article.site_id).first()
+    if not site_db:
+        return JSONResponse({"error": "site not found"}, status_code=404)
+
+    try:
+        site_cfg = get_site_config(site_db.slug)
+    except KeyError:
+        return JSONResponse({"error": "site config not found"}, status_code=404)
+
+    if not site_cfg.ga4_property_id or site_cfg.ga4_property_id == "DA_AGGIUNGERE":
+        return JSONResponse({"error": "no GA4 property configured"}, status_code=404)
+
+    cache_key = f"article_perf:{article_id}"
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return JSONResponse(cached)
+
+    from urllib.parse import urlparse
+    parsed = urlparse(article.wp_url)
+    page_path = parsed.path or "/"
+
+    from core.ga4_client import GA4Client
+    client = GA4Client(site_cfg.ga4_property_id)
+    if not client.available:
+        return JSONResponse({"error": "GA4 client not available"}, status_code=503)
+
+    perf = client.get_article_performance(page_path, period_days=90)
+    if perf is None:
+        return JSONResponse({"sessions": 0, "pageviews": 0, "avg_session_duration": 0, "engagement_rate": 0})
+
+    _cache_set(cache_key, perf)
+    return JSONResponse(perf)

@@ -31,6 +31,7 @@ from typing import Optional
 
 import structlog
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from agents.content_agent import generate_email_pair, generate_article
@@ -779,6 +780,27 @@ def article_job(site_slugs: Optional[list] = None) -> None:
         db.close()
 
 
+def ga4_sync_job() -> None:
+    """
+    Daily GA4 analytics sync job (runs at 06:00 via CronTrigger).
+    Fetches the last 30-day snapshot for every active site that has a ga4_property_id.
+    Notifies Telegram only on error.
+    """
+    from core.analytics_sync import sync_all_sites_analytics
+
+    log.info("ga4_sync_job_started", at=datetime.utcnow().isoformat())
+    try:
+        results = sync_all_sites_analytics()
+        errors = {slug: r for slug, r in results.items() if not r.get("success") and r.get("error") != "no ga4_property_id configured"}
+        if errors:
+            error_lines = "\n".join(f"• {slug}: {r['error']}" for slug, r in errors.items())
+            notify_error("GA4 Sync", f"Errori su {len(errors)} siti:\n{error_lines}")
+        log.info("ga4_sync_job_done", total=len(results), errors=len(errors))
+    except Exception as exc:
+        log.error("ga4_sync_job_failed", error=str(exc))
+        notify_error("GA4 Sync Job", str(exc))
+
+
 def keyword_research_job() -> None:
     """
     Monthly keyword research job: runs DataForSEO research for each site
@@ -862,6 +884,15 @@ def start_scheduler() -> BackgroundScheduler:
         name="DataForSEO keyword research snapshots",
         replace_existing=True,
         misfire_grace_time=7200,
+    )
+
+    scheduler.add_job(
+        func=ga4_sync_job,
+        trigger=CronTrigger(hour=6, minute=0),
+        id="ga4_sync_job",
+        name="GA4 analytics daily sync",
+        replace_existing=True,
+        misfire_grace_time=3600,
     )
 
     scheduler.start()

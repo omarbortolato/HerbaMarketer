@@ -43,5 +43,9 @@ beautifulsoup4==4.12.3
 # --- Image generation ---
 openai==1.57.2                     # DALL-E 3 (optional — set OPENAI_API_KEY)
 
+# --- Google Analytics 4 ---
+google-analytics-data==0.18.0
+google-auth==2.29.0
+
 # --- Dev utilities ---
 python-multipart==0.0.18

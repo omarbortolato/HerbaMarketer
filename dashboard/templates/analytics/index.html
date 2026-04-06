@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Analytics — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">Analytics Overview</h1>
+  <span class="text-sm text-gray-400">Ultimi 30 giorni</span>
+</div>
+
+<!-- Summary table -->
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden mb-8">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-3 text-left">Sito</th>
+        <th class="px-4 py-3 text-right">Sessioni</th>
+        <th class="px-4 py-3 text-right">Utenti</th>
+        <th class="px-4 py-3 text-right">Pageviews</th>
+        <th class="px-4 py-3 text-right">AOV (€)</th>
+        <th class="px-4 py-3 text-center">Abbandono carrello</th>
+        <th class="px-4 py-3 text-right">Returning %</th>
+        <th class="px-4 py-3 text-left">Ultimo sync</th>
+        <th class="px-4 py-3 text-left">Azioni</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for row in rows %}
+      {% set s = row.site %}
+      {% set snap = row.snap %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-3">
+          <a href="/analytics/{{ s.slug }}" class="font-medium text-herba hover:underline">{{ s.slug }}</a>
+          <div class="text-xs text-gray-400">{{ s.locale }}</div>
+        </td>
+        {% if snap %}
+        <td class="px-4 py-3 text-right font-medium">{{ snap.sessions | default('—') | int | string }}</td>
+        <td class="px-4 py-3 text-right text-gray-600">{{ snap.total_users | default('—') | int | string }}</td>
+        <td class="px-4 py-3 text-right text-gray-600">{{ snap.pageviews | default('—') | int | string }}</td>
+        <td class="px-4 py-3 text-right text-gray-600">
+          {% if snap.avg_order_value %}€{{ "%.2f"|format(snap.avg_order_value) }}{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-center">
+          {% if snap.cart_abandonment_rate is not none %}
+            {% set pct = (snap.cart_abandonment_rate * 100) | round(1) %}
+            {% if pct < 60 %}
+              <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">{{ pct }}%</span>
+            {% elif pct < 75 %}
+              <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs">{{ pct }}%</span>
+            {% else %}
+              <span class="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs">{{ pct }}%</span>
+            {% endif %}
+          {% else %}
+            <span class="text-gray-300">—</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-gray-600">
+          {% if snap.returning_customer_rate is not none %}
+            {{ (snap.returning_customer_rate * 100) | round(1) }}%
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-400">
+          {{ snap.snapshot_date.strftime('%d/%m/%Y') if snap.snapshot_date else '—' }}
+        </td>
+        {% else %}
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-center text-gray-300">—</td>
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-xs text-gray-300">mai sincronizzato</td>
+        {% endif %}
+        <td class="px-4 py-3">
+          <div class="flex gap-2">
+            <a href="/analytics/{{ s.slug }}" class="text-xs px-2 py-1 border border-herba text-herba rounded hover:bg-herba-light transition">
+              Dettaglio
+            </a>
+            <form method="POST" action="/analytics/{{ s.slug }}/sync" class="inline">
+              <button type="submit" class="text-xs px-2 py-1 border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition">
+                ↺ Sync
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Charts -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">Sessioni per sito (30gg)</h2>
+    <canvas id="sessionsChart" height="220"></canvas>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">Revenue per sito (30gg)</h2>
+    <canvas id="revenueChart" height="220"></canvas>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  var labels = [{% for row in rows %}'{{ row.site.slug }}'{% if not loop.last %},{% endif %}{% endfor %}];
+  var sessions = [{% for row in rows %}{{ row.snap.sessions if row.snap and row.snap.sessions else 0 }}{% if not loop.last %},{% endif %}{% endfor %}];
+  var revenue = [{% for row in rows %}{{ row.snap.revenue if row.snap and row.snap.revenue else 0 }}{% if not loop.last %},{% endif %}{% endfor %}];
+
+  var green = '#00A652';
+  var greenLight = '#E6F7EE';
+
+  new Chart(document.getElementById('sessionsChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Sessioni',
+        data: sessions,
+        backgroundColor: green,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  new Chart(document.getElementById('revenueChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Revenue (€)',
+        data: revenue,
+        backgroundColor: green,
+        borderRadius: 4,
+      }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+})();
+</script>
+{% endblock %}

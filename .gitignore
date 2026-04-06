@@ -39,3 +39,7 @@ alembic/versions/__pycache__/
 # Script di test temporanei (root level only, non la cartella tests/)
 /test_*.py
 /run_bot.py
+google_credentials.json
+*-credentials*.json
+herbamarketer/
+migrate_to_postgres.py
