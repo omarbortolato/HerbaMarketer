@@ -2,9 +2,18 @@
 {% block title %}Analytics — HerbaMarketer{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
+<div class="flex items-center justify-between mb-4">
   <h1 class="text-2xl font-bold">Analytics Overview</h1>
-  <span class="text-sm text-gray-400">Ultimi 30 giorni</span>
+  <!-- Period selector -->
+  <div class="flex gap-1 bg-gray-100 rounded-lg p-1">
+    {% for p in valid_periods %}
+    <a href="/analytics?period={{ p }}"
+       class="text-xs font-medium px-3 py-1.5 rounded-md transition
+              {% if period == p %}bg-white shadow text-herba{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+      {{ p }}gg
+    </a>
+    {% endfor %}
+  </div>
 </div>
 
 <!-- Summary table -->
@@ -29,13 +38,13 @@
       {% set snap = row.snap %}
       <tr class="hover:bg-gray-50">
         <td class="px-4 py-3">
-          <a href="/analytics/{{ s.slug }}" class="font-medium text-herba hover:underline">{{ s.slug }}</a>
+          <a href="/analytics/{{ s.slug }}?period={{ period }}" class="font-medium text-herba hover:underline">{{ s.slug }}</a>
           <div class="text-xs text-gray-400">{{ s.locale }}</div>
         </td>
         {% if snap %}
-        <td class="px-4 py-3 text-right font-medium">{{ snap.sessions | default('—') | int | string }}</td>
-        <td class="px-4 py-3 text-right text-gray-600">{{ snap.total_users | default('—') | int | string }}</td>
-        <td class="px-4 py-3 text-right text-gray-600">{{ snap.pageviews | default('—') | int | string }}</td>
+        <td class="px-4 py-3 text-right font-medium">{{ snap.sessions | int if snap.sessions else '—' }}</td>
+        <td class="px-4 py-3 text-right text-gray-600">{{ snap.total_users | int if snap.total_users else '—' }}</td>
+        <td class="px-4 py-3 text-right text-gray-600">{{ snap.pageviews | int if snap.pageviews else '—' }}</td>
         <td class="px-4 py-3 text-right text-gray-600">
           {% if snap.avg_order_value %}€{{ "%.2f"|format(snap.avg_order_value) }}{% else %}—{% endif %}
         </td>
@@ -72,10 +81,11 @@
         {% endif %}
         <td class="px-4 py-3">
           <div class="flex gap-2">
-            <a href="/analytics/{{ s.slug }}" class="text-xs px-2 py-1 border border-herba text-herba rounded hover:bg-herba-light transition">
+            <a href="/analytics/{{ s.slug }}?period={{ period }}"
+               class="text-xs px-2 py-1 border border-herba text-herba rounded hover:bg-herba-light transition">
               Dettaglio
             </a>
-            <form method="POST" action="/analytics/{{ s.slug }}/sync" class="inline">
+            <form method="POST" action="/analytics/{{ s.slug }}/sync?period={{ period }}" class="inline">
               <button type="submit" class="text-xs px-2 py-1 border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition">
                 ↺ Sync
               </button>
@@ -91,11 +101,11 @@
 <!-- Charts -->
 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
   <div class="bg-white rounded-xl border shadow-sm p-5">
-    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">Sessioni per sito (30gg)</h2>
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">Sessioni per sito ({{ period }}gg)</h2>
     <canvas id="sessionsChart" height="220"></canvas>
   </div>
   <div class="bg-white rounded-xl border shadow-sm p-5">
-    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">Revenue per sito (30gg)</h2>
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">Revenue per sito ({{ period }}gg)</h2>
     <canvas id="revenueChart" height="220"></canvas>
   </div>
 </div>
@@ -108,40 +118,23 @@
   var revenue = [{% for row in rows %}{{ row.snap.revenue if row.snap and row.snap.revenue else 0 }}{% if not loop.last %},{% endif %}{% endfor %}];
 
   var green = '#00A652';
-  var greenLight = '#E6F7EE';
 
   new Chart(document.getElementById('sessionsChart'), {
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [{
-        label: 'Sessioni',
-        data: sessions,
-        backgroundColor: green,
-        borderRadius: 4,
-      }]
+      datasets: [{ label: 'Sessioni', data: sessions, backgroundColor: green, borderRadius: 4 }]
     },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true } }
-    }
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
   });
 
   new Chart(document.getElementById('revenueChart'), {
     type: 'bar',
     data: {
       labels: labels,
-      datasets: [{
-        label: 'Revenue (€)',
-        data: revenue,
-        backgroundColor: green,
-        borderRadius: 4,
-      }]
+      datasets: [{ label: 'Revenue (€)', data: revenue, backgroundColor: green, borderRadius: 4 }]
     },
-    options: {
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true } }
-    }
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
   });
 })();
 </script>

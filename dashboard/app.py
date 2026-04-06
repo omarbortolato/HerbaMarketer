@@ -29,7 +29,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -912,10 +912,19 @@ def _cache_set(key: str, data):
     _analytics_cache[key] = (_time.time(), data)
 
 
+_VALID_PERIODS = (7, 30, 90)
+
+
 @app.get("/analytics", response_class=HTMLResponse)
-async def analytics_overview(request: Request, db: Session = Depends(get_db)):
-    """Overview analytics: latest 30-day snapshot per site."""
+async def analytics_overview(
+    request: Request,
+    period: int = Query(30),
+    db: Session = Depends(get_db),
+):
+    """Overview analytics: latest snapshot per site for the selected period."""
     user = request.session.get("user")
+    if period not in _VALID_PERIODS:
+        period = 30
     active_sites = get_all_active_sites()
 
     rows = []
@@ -927,7 +936,7 @@ async def analytics_overview(request: Request, db: Session = Depends(get_db)):
                 db.query(AnalyticsSnapshot)
                 .filter(
                     AnalyticsSnapshot.site_id == site_db.id,
-                    AnalyticsSnapshot.period_days == 30,
+                    AnalyticsSnapshot.period_days == period,
                 )
                 .order_by(AnalyticsSnapshot.snapshot_date.desc())
                 .first()
@@ -940,16 +949,23 @@ async def analytics_overview(request: Request, db: Session = Depends(get_db)):
             "request": request,
             "current_user": user,
             "rows": rows,
+            "period": period,
+            "valid_periods": _VALID_PERIODS,
         },
     )
 
 
 @app.get("/analytics/{site_slug}", response_class=HTMLResponse)
 async def analytics_site_detail(
-    site_slug: str, request: Request, db: Session = Depends(get_db)
+    site_slug: str,
+    request: Request,
+    period: int = Query(30),
+    db: Session = Depends(get_db),
 ):
     """Per-site analytics detail with live top pages and traffic sources (cached 1h)."""
     user = request.session.get("user")
+    if period not in _VALID_PERIODS:
+        period = 30
 
     try:
         site_cfg = get_site_config(site_slug)
@@ -963,29 +979,29 @@ async def analytics_site_detail(
             db.query(AnalyticsSnapshot)
             .filter(
                 AnalyticsSnapshot.site_id == site_db.id,
-                AnalyticsSnapshot.period_days == 30,
+                AnalyticsSnapshot.period_days == period,
             )
             .order_by(AnalyticsSnapshot.snapshot_date.desc())
             .first()
         )
 
-    # Live data (cached 1h)
+    # Live data (cached 1h per period)
     top_pages = []
     traffic_sources = []
     ga4_available = bool(
         site_cfg.ga4_property_id and site_cfg.ga4_property_id != "DA_AGGIUNGERE"
     )
     if ga4_available:
-        cache_key_pages = f"top_pages:{site_slug}"
-        cache_key_sources = f"traffic_sources:{site_slug}"
+        cache_key_pages = f"top_pages:{site_slug}:{period}"
+        cache_key_sources = f"traffic_sources:{site_slug}:{period}"
         top_pages = _cache_get(cache_key_pages)
         traffic_sources = _cache_get(cache_key_sources)
         if top_pages is None or traffic_sources is None:
             from core.ga4_client import GA4Client
             client = GA4Client(site_cfg.ga4_property_id)
             if client.available:
-                top_pages = client.get_top_pages(period_days=30)
-                traffic_sources = client.get_traffic_sources(period_days=30)
+                top_pages = client.get_top_pages(period_days=period)
+                traffic_sources = client.get_traffic_sources(period_days=period)
                 _cache_set(cache_key_pages, top_pages)
                 _cache_set(cache_key_sources, traffic_sources)
             else:
@@ -1002,6 +1018,8 @@ async def analytics_site_detail(
             "top_pages": top_pages,
             "traffic_sources": traffic_sources,
             "ga4_available": ga4_available,
+            "period": period,
+            "valid_periods": _VALID_PERIODS,
         },
     )
 
@@ -1011,19 +1029,22 @@ async def analytics_sync_site(
     site_slug: str,
     background_tasks: BackgroundTasks,
     request: Request,
+    period: int = Query(30),
 ):
-    """Force a GA4 sync for one site (runs in background)."""
+    """Force a GA4 sync for one site for all periods (runs in background)."""
     from core.analytics_sync import sync_site_analytics
 
     def _do_sync():
-        sync_site_analytics(site_slug)
-        # Invalidate cache
+        # Sync all periods so any tab has fresh data
+        for p in _VALID_PERIODS:
+            sync_site_analytics(site_slug, period_days=p)
+        # Invalidate all cached entries for this site
         for key in list(_analytics_cache.keys()):
-            if key.endswith(f":{site_slug}"):
+            if f":{site_slug}" in key:
                 _analytics_cache.pop(key, None)
 
     background_tasks.add_task(_do_sync)
-    return RedirectResponse(url=f"/analytics/{site_slug}?syncing=1", status_code=303)
+    return RedirectResponse(url=f"/analytics/{site_slug}?period={period}&syncing=1", status_code=303)
 
 
 @app.get("/api/article/{article_id}/analytics")

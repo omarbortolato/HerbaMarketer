@@ -2,18 +2,30 @@
 {% block title %}Analytics — {{ site.slug }} — HerbaMarketer{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
+<div class="flex items-center justify-between mb-4">
   <div>
-    <a href="/analytics" class="text-xs text-gray-400 hover:text-herba">← Tutti i siti</a>
+    <a href="/analytics?period={{ period }}" class="text-xs text-gray-400 hover:text-herba">← Tutti i siti</a>
     <h1 class="text-2xl font-bold mt-1">{{ site.slug }} — Analytics</h1>
     <p class="text-sm text-gray-500">{{ site.url }} · {{ site.locale }}</p>
   </div>
-  <form method="POST" action="/analytics/{{ site.slug }}/sync">
-    <button type="submit"
-            class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
-      ↺ Forza sync
-    </button>
-  </form>
+  <div class="flex items-center gap-3">
+    <!-- Period selector -->
+    <div class="flex gap-1 bg-gray-100 rounded-lg p-1">
+      {% for p in valid_periods %}
+      <a href="/analytics/{{ site.slug }}?period={{ p }}"
+         class="text-xs font-medium px-3 py-1.5 rounded-md transition
+                {% if period == p %}bg-white shadow text-herba{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+        {{ p }}gg
+      </a>
+      {% endfor %}
+    </div>
+    <form method="POST" action="/analytics/{{ site.slug }}/sync?period={{ period }}">
+      <button type="submit"
+              class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+        ↺ Forza sync
+      </button>
+    </form>
+  </div>
 </div>
 
 {% if not ga4_available %}
@@ -82,7 +94,7 @@
 {% if top_pages %}
 <div class="bg-white rounded-xl border shadow-sm overflow-hidden mb-6">
   <div class="px-5 py-3 border-b bg-gray-50">
-    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Top 10 Pagine (30gg)</h2>
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Top 10 Pagine ({{ period }}gg)</h2>
   </div>
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
@@ -117,7 +129,7 @@
 {% if traffic_sources %}
 <div class="bg-white rounded-xl border shadow-sm overflow-hidden mb-6">
   <div class="px-5 py-3 border-b bg-gray-50">
-    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Fonti di traffico (30gg)</h2>
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Fonti di traffico ({{ period }}gg)</h2>
   </div>
   <table class="w-full text-sm">
     <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
