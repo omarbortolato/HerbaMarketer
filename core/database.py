@@ -88,6 +88,8 @@ class Site(Base):
     publish_logs = relationship("PublishLog", back_populates="site")
     keyword_snapshots = relationship("KeywordSnapshot", back_populates="site")
     analytics_snapshots = relationship("AnalyticsSnapshot", back_populates="site")
+    ads_snapshots = relationship("AdsSnapshot", back_populates="site")
+    ads_campaign_snapshots = relationship("AdsCampaignSnapshot", back_populates="site")
 
     def __repr__(self) -> str:
         return f"<Site slug={self.slug!r} lang={self.language!r}>"
@@ -289,6 +291,76 @@ class AnalyticsSnapshot(Base):
 
     def __repr__(self) -> str:
         return f"<AnalyticsSnapshot site_id={self.site_id} date={self.snapshot_date} period={self.period_days}d>"
+
+
+class AdsSnapshot(Base):
+    """
+    Daily Google Ads account-level snapshot per site.
+    Upserted on (site_id, snapshot_date, period_days).
+    """
+
+    __tablename__ = "ads_snapshots"
+    __table_args__ = (
+        UniqueConstraint("site_id", "snapshot_date", "period_days", name="uq_ads_snapshot"),
+    )
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    site_id: Optional[int] = Column(Integer, ForeignKey("sites.id"), nullable=True)
+    snapshot_date: date = Column(Date, nullable=False)
+    period_days: int = Column(Integer, nullable=False, default=30)
+
+    impressions: Optional[int] = Column(Integer, nullable=True)
+    clicks: Optional[int] = Column(Integer, nullable=True)
+    ctr: Optional[float] = Column(Float, nullable=True)
+    cost: Optional[float] = Column(Float, nullable=True)
+    conversions: Optional[float] = Column(Float, nullable=True)
+    conversions_value: Optional[float] = Column(Float, nullable=True)
+    roas: Optional[float] = Column(Float, nullable=True)
+
+    created_at: datetime = Column(DateTime, default=func.now())
+
+    site = relationship("Site", back_populates="ads_snapshots")
+
+    def __repr__(self) -> str:
+        return f"<AdsSnapshot site_id={self.site_id} date={self.snapshot_date} period={self.period_days}d>"
+
+
+class AdsCampaignSnapshot(Base):
+    """
+    Daily Google Ads per-campaign snapshot per site.
+    Upserted on (site_id, campaign_id, snapshot_date, period_days).
+    """
+
+    __tablename__ = "ads_campaign_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "site_id", "campaign_id", "snapshot_date", "period_days",
+            name="uq_ads_campaign_snapshot",
+        ),
+    )
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    site_id: Optional[int] = Column(Integer, ForeignKey("sites.id"), nullable=True)
+    campaign_id: str = Column(String, nullable=False)
+    campaign_name: Optional[str] = Column(String, nullable=True)
+    status: Optional[str] = Column(String, nullable=True)          # ENABLED / PAUSED
+    snapshot_date: date = Column(Date, nullable=False)
+    period_days: int = Column(Integer, nullable=False, default=30)
+
+    impressions: Optional[int] = Column(Integer, nullable=True)
+    clicks: Optional[int] = Column(Integer, nullable=True)
+    ctr: Optional[float] = Column(Float, nullable=True)
+    cost: Optional[float] = Column(Float, nullable=True)
+    conversions: Optional[float] = Column(Float, nullable=True)
+    conversions_value: Optional[float] = Column(Float, nullable=True)
+    roas: Optional[float] = Column(Float, nullable=True)
+
+    created_at: datetime = Column(DateTime, default=func.now())
+
+    site = relationship("Site", back_populates="ads_campaign_snapshots")
+
+    def __repr__(self) -> str:
+        return f"<AdsCampaignSnapshot site_id={self.site_id} campaign={self.campaign_name!r} date={self.snapshot_date}>"
 
 
 # ---------------------------------------------------------------------------

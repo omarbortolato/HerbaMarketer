@@ -22,6 +22,7 @@ sites:
     preferred_customer_url: "https://www.hlifeclienteprivilegiato.it/"
     distributor_url: "https://www.hl-distributor.com/it/"
     ga4_property_id: "489961908"
+    google_ads_customer_id: "7708381052"
     active: true
 
   herbago_fr:
@@ -37,6 +38,7 @@ sites:
     preferred_customer_url: "https://www.hlifepreferredcustomer.com/fr/"
     distributor_url: "https://www.hl-distributor.com/fr/"
     ga4_property_id: "467530836"
+    google_ads_customer_id: "5557681421"
     active: true
 
   herbago_de:
@@ -52,6 +54,7 @@ sites:
     preferred_customer_url: "https://www.hlifepreferredcustomer.com/de/"
     distributor_url: "https://www.hl-distributor.com/de/"
     ga4_property_id: "484609595"
+    google_ads_customer_id: "3830648739"
     active: true
 
   herbago_net:
@@ -67,6 +70,7 @@ sites:
     preferred_customer_url: "https://www.hlifepreferredcustomer.com/en/"
     distributor_url: "https://www.hl-distributor.com/en/"
     ga4_property_id: "486316369"
+    google_ads_customer_id: "5627481560"
     active: true
 
   herbago_co_uk:
@@ -111,4 +115,5 @@ sites:
     preferred_customer_url: "https://www.hlifeclienteprivilegiato.it/"
     distributor_url: "https://www.hl-distributor.com/it/"
     ga4_property_id: "308790175"
+    google_ads_customer_id: "8620569886"
     active: true

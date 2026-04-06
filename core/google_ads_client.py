@@ -1,0 +1,213 @@
+"""
+core/google_ads_client.py
+
+Google Ads API client wrapper.
+
+Auth credentials (all required, set in .env):
+  GOOGLE_ADS_DEVELOPER_TOKEN   — from My API Center in the Google Ads account
+  GOOGLE_ADS_CLIENT_ID         — OAuth2 client ID (Google Cloud Console)
+  GOOGLE_ADS_CLIENT_SECRET     — OAuth2 client secret
+  GOOGLE_ADS_REFRESH_TOKEN     — long-lived OAuth2 refresh token
+
+Customer ID is passed per-request (one per site, no MCC).
+
+All methods return empty structures on error — never crash the main process.
+"""
+
+import os
+from typing import Optional
+
+import structlog
+
+log = structlog.get_logger(__name__)
+
+_PERIOD_MAP = {
+    7:  "LAST_7_DAYS",
+    30: "LAST_30_DAYS",
+    90: "LAST_90_DAYS",
+}
+
+
+def _build_config() -> Optional[dict]:
+    """Build the google-ads config dict from env vars. Returns None if any key is missing."""
+    dev_token = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN")
+    client_id = os.getenv("GOOGLE_ADS_CLIENT_ID")
+    client_secret = os.getenv("GOOGLE_ADS_CLIENT_SECRET")
+    refresh_token = os.getenv("GOOGLE_ADS_REFRESH_TOKEN")
+
+    if not all([dev_token, client_id, client_secret, refresh_token]):
+        missing = [
+            k for k, v in {
+                "GOOGLE_ADS_DEVELOPER_TOKEN": dev_token,
+                "GOOGLE_ADS_CLIENT_ID": client_id,
+                "GOOGLE_ADS_CLIENT_SECRET": client_secret,
+                "GOOGLE_ADS_REFRESH_TOKEN": refresh_token,
+            }.items() if not v
+        ]
+        log.warning("google_ads.missing_credentials", missing=missing)
+        return None
+
+    return {
+        "developer_token": dev_token,
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "refresh_token": refresh_token,
+        "use_proto_plus": True,
+    }
+
+
+class GoogleAdsClient:
+    """
+    Thin wrapper around the Google Ads API for one customer account.
+
+    customer_id: numeric string without dashes, e.g. "7708381052"
+    """
+
+    def __init__(self, customer_id: str):
+        self._customer_id = customer_id
+        self._client = None
+
+        if not customer_id:
+            log.debug("google_ads.client_skipped", reason="no customer_id")
+            return
+
+        config = _build_config()
+        if config is None:
+            return
+
+        try:
+            from google.ads.googleads.client import GoogleAdsClient as _GAC
+            self._client = _GAC.load_from_dict(config)
+            log.info("google_ads.client_ready", customer_id=customer_id)
+        except Exception as exc:
+            log.warning("google_ads.client_init_error", error=str(exc))
+
+    @property
+    def available(self) -> bool:
+        return self._client is not None
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    def _run_query(self, gaql: str) -> list:
+        """Execute a GAQL query; return list of rows or [] on error."""
+        if not self.available:
+            return []
+        try:
+            service = self._client.get_service("GoogleAdsService")
+            response = service.search(customer_id=self._customer_id, query=gaql)
+            return list(response)
+        except Exception as exc:
+            log.warning("google_ads.query_error", error=str(exc), customer=self._customer_id)
+            return []
+
+    @staticmethod
+    def _micros_to_eur(micros) -> float:
+        """Convert cost_micros to currency (divide by 1_000_000)."""
+        try:
+            return float(micros) / 1_000_000
+        except (TypeError, ValueError):
+            return 0.0
+
+    @staticmethod
+    def _roas(conversions_value: float, cost: float) -> Optional[float]:
+        if cost > 0:
+            return round(conversions_value / cost, 2)
+        return None
+
+    # ------------------------------------------------------------------
+    # Public methods
+    # ------------------------------------------------------------------
+
+    def get_account_overview(self, period_days: int = 30) -> Optional[dict]:
+        """
+        Return account-level KPIs for the given period.
+
+        Returns:
+            {impressions, clicks, ctr, cost, conversions, conversions_value, roas}
+        or None on error / no data.
+        """
+        date_range = _PERIOD_MAP.get(period_days, "LAST_30_DAYS")
+        gaql = f"""
+            SELECT
+              metrics.impressions,
+              metrics.clicks,
+              metrics.ctr,
+              metrics.cost_micros,
+              metrics.conversions,
+              metrics.conversions_value
+            FROM customer
+            WHERE segments.date DURING {date_range}
+        """
+        rows = self._run_query(gaql)
+        if not rows:
+            return None
+        try:
+            row = rows[0]
+            m = row.metrics
+            cost = self._micros_to_eur(m.cost_micros)
+            conv_value = float(m.conversions_value)
+            return {
+                "impressions": int(m.impressions),
+                "clicks": int(m.clicks),
+                "ctr": round(float(m.ctr), 4),
+                "cost": round(cost, 2),
+                "conversions": round(float(m.conversions), 1),
+                "conversions_value": round(conv_value, 2),
+                "roas": self._roas(conv_value, cost),
+            }
+        except Exception as exc:
+            log.warning("google_ads.parse_account_error", error=str(exc))
+            return None
+
+    def get_campaigns(self, period_days: int = 30) -> list[dict]:
+        """
+        Return per-campaign KPIs for the given period, ordered by cost descending.
+
+        Each entry:
+            {campaign_id, campaign_name, status,
+             impressions, clicks, ctr, cost, conversions, conversions_value, roas}
+        """
+        date_range = _PERIOD_MAP.get(period_days, "LAST_30_DAYS")
+        gaql = f"""
+            SELECT
+              campaign.id,
+              campaign.name,
+              campaign.status,
+              metrics.impressions,
+              metrics.clicks,
+              metrics.ctr,
+              metrics.cost_micros,
+              metrics.conversions,
+              metrics.conversions_value
+            FROM campaign
+            WHERE segments.date DURING {date_range}
+              AND campaign.status != 'REMOVED'
+            ORDER BY metrics.cost_micros DESC
+        """
+        rows = self._run_query(gaql)
+        results = []
+        for row in rows:
+            try:
+                m = row.metrics
+                cost = self._micros_to_eur(m.cost_micros)
+                conv_value = float(m.conversions_value)
+                # Skip campaigns with zero spend and zero impressions
+                if int(m.impressions) == 0 and cost == 0:
+                    continue
+                results.append({
+                    "campaign_id": str(row.campaign.id),
+                    "campaign_name": row.campaign.name,
+                    "status": row.campaign.status.name,  # ENABLED / PAUSED
+                    "impressions": int(m.impressions),
+                    "clicks": int(m.clicks),
+                    "ctr": round(float(m.ctr), 4),
+                    "cost": round(cost, 2),
+                    "conversions": round(float(m.conversions), 1),
+                    "conversions_value": round(conv_value, 2),
+                    "roas": self._roas(conv_value, cost),
+                })
+            except Exception as exc:
+                log.warning("google_ads.parse_campaign_row_error", error=str(exc))
+        return results

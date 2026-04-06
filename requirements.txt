@@ -47,5 +47,8 @@ openai==1.57.2                     # DALL-E 3 (optional — set OPENAI_API_KEY)
 google-analytics-data==0.18.0
 google-auth==2.29.0
 
+# --- Google Ads ---
+google-ads==24.1.0
+
 # --- Dev utilities ---
 python-multipart==0.0.18

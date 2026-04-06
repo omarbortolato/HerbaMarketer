@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Ads — {{ site.slug }} — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <div>
+    <a href="/ads?period={{ period }}" class="text-xs text-gray-400 hover:text-herba">← Tutti i siti</a>
+    <h1 class="text-2xl font-bold mt-1">{{ site.slug }} — Google Ads</h1>
+    <p class="text-sm text-gray-500">{{ site.url }} · Customer ID: {{ site.google_ads_customer_id or '—' }}</p>
+  </div>
+  <div class="flex items-center gap-3">
+    <div class="flex gap-1 bg-gray-100 rounded-lg p-1">
+      {% for p in valid_periods %}
+      <a href="/ads/{{ site.slug }}?period={{ p }}"
+         class="text-xs font-medium px-3 py-1.5 rounded-md transition
+                {% if period == p %}bg-white shadow text-herba{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+        {{ p }}gg
+      </a>
+      {% endfor %}
+    </div>
+    <form method="POST" action="/ads/{{ site.slug }}/sync?period={{ period }}">
+      <button type="submit"
+              class="flex items-center gap-2 bg-herba hover:bg-herba-dark text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+        ↺ Forza sync
+      </button>
+    </form>
+  </div>
+</div>
+
+{% if not ads_available %}
+<div class="bg-yellow-50 border border-yellow-200 rounded-xl p-5 mb-6 text-yellow-800 text-sm">
+  ⚠️ Nessun <code>google_ads_customer_id</code> configurato per questo sito.
+</div>
+{% endif %}
+
+<!-- Account KPI cards -->
+{% if snap %}
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Impressioni</p>
+    <p class="text-2xl font-bold text-gray-800">{{ "{:,}".format(snap.impressions) if snap.impressions else '—' }}</p>
+    <p class="text-xs text-gray-400 mt-1">ultimi {{ period }}gg</p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Click</p>
+    <p class="text-2xl font-bold text-gray-800">{{ "{:,}".format(snap.clicks) if snap.clicks else '—' }}</p>
+    <p class="text-xs text-gray-400 mt-1">
+      CTR: {% if snap.ctr is not none %}{{ (snap.ctr * 100) | round(2) }}%{% else %}—{% endif %}
+    </p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Spesa</p>
+    <p class="text-2xl font-bold text-red-600">{% if snap.cost %}€{{ "%.2f"|format(snap.cost) }}{% else %}—{% endif %}</p>
+    <p class="text-xs text-gray-400 mt-1">
+      Conv. value: {% if snap.conversions_value %}€{{ "%.2f"|format(snap.conversions_value) }}{% else %}—{% endif %}
+    </p>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-4">
+    <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">ROAS</p>
+    {% if snap.roas is not none %}
+      <p class="text-2xl font-bold {% if snap.roas >= 3 %}text-green-600{% elif snap.roas >= 1 %}text-yellow-600{% else %}text-red-600{% endif %}">
+        {{ snap.roas | round(2) }}x
+      </p>
+    {% else %}
+      <p class="text-2xl font-bold text-gray-800">—</p>
+    {% endif %}
+    <p class="text-xs text-gray-400 mt-1">
+      Conversioni: {% if snap.conversions is not none %}{{ snap.conversions | round(1) }}{% else %}—{% endif %}
+    </p>
+  </div>
+</div>
+{% else %}
+<div class="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400 mb-6">
+  Nessun dato disponibile. Clicca "Forza sync" per recuperare i dati da Google Ads.
+</div>
+{% endif %}
+
+<!-- Campaigns table -->
+{% if campaigns %}
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+  <div class="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">
+      Campagne ({{ period }}gg) — {{ campaigns | length }} attive
+    </h2>
+  </div>
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-3 text-left">Campagna</th>
+        <th class="px-4 py-3 text-center">Stato</th>
+        <th class="px-4 py-3 text-right">Impressioni</th>
+        <th class="px-4 py-3 text-right">Click</th>
+        <th class="px-4 py-3 text-right">CTR</th>
+        <th class="px-4 py-3 text-right">Costo (€)</th>
+        <th class="px-4 py-3 text-right">Conversioni</th>
+        <th class="px-4 py-3 text-right">Conv. Value (€)</th>
+        <th class="px-4 py-3 text-right">ROAS</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for c in campaigns %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-3 font-medium max-w-xs">
+          <span class="block truncate" title="{{ c.campaign_name }}">{{ c.campaign_name or c.campaign_id }}</span>
+        </td>
+        <td class="px-4 py-3 text-center">
+          {% if c.status == 'ENABLED' %}
+            <span class="px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">attiva</span>
+          {% elif c.status == 'PAUSED' %}
+            <span class="px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs">in pausa</span>
+          {% else %}
+            <span class="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs">{{ c.status or '—' }}</span>
+          {% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-gray-600">{{ "{:,}".format(c.impressions) if c.impressions else '—' }}</td>
+        <td class="px-4 py-3 text-right font-medium">{{ "{:,}".format(c.clicks) if c.clicks else '—' }}</td>
+        <td class="px-4 py-3 text-right text-gray-600">
+          {% if c.ctr is not none %}{{ (c.ctr * 100) | round(2) }}%{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right font-medium text-red-600">
+          {% if c.cost %}€{{ "%.2f"|format(c.cost) }}{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-gray-600">
+          {% if c.conversions is not none %}{{ c.conversions | round(1) }}{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-gray-600">
+          {% if c.conversions_value %}€{{ "%.2f"|format(c.conversions_value) }}{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right">
+          {% if c.roas is not none %}
+            <span class="font-medium {% if c.roas >= 3 %}text-green-600{% elif c.roas >= 1 %}text-yellow-600{% else %}text-red-600{% endif %}">
+              {{ c.roas | round(2) }}x
+            </span>
+          {% else %}—{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <!-- Totals row -->
+    <tfoot class="bg-gray-50 font-semibold text-xs border-t-2">
+      <tr>
+        <td class="px-4 py-3 text-gray-600" colspan="2">Totale</td>
+        <td class="px-4 py-3 text-right">
+          {{ "{:,}".format(campaigns | sum(attribute='impressions') | int) }}
+        </td>
+        <td class="px-4 py-3 text-right">
+          {{ "{:,}".format(campaigns | sum(attribute='clicks') | int) }}
+        </td>
+        <td class="px-4 py-3 text-right text-gray-400">—</td>
+        <td class="px-4 py-3 text-right text-red-600">
+          €{{ "%.2f"|format(campaigns | sum(attribute='cost')) }}
+        </td>
+        <td class="px-4 py-3 text-right">
+          {{ (campaigns | sum(attribute='conversions')) | round(1) }}
+        </td>
+        <td class="px-4 py-3 text-right">
+          €{{ "%.2f"|format(campaigns | sum(attribute='conversions_value')) }}
+        </td>
+        <td class="px-4 py-3 text-right text-gray-400">—</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% elif snap %}
+<div class="bg-white rounded-xl border shadow-sm p-8 text-center text-gray-400">
+  Nessuna campagna con attività nel periodo selezionato.
+</div>
+{% endif %}
+
+{% if request.query_params.get('syncing') %}
+<div class="fixed bottom-6 right-6 bg-herba text-white text-sm px-4 py-3 rounded-xl shadow-lg">
+  ↺ Sync in background — aggiorna la pagina tra qualche secondo.
+</div>
+{% endif %}
+{% endblock %}

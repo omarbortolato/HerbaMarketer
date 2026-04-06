@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Google Ads — HerbaMarketer{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-4">
+  <h1 class="text-2xl font-bold">Google Ads Overview</h1>
+  <div class="flex gap-1 bg-gray-100 rounded-lg p-1">
+    {% for p in valid_periods %}
+    <a href="/ads?period={{ p }}"
+       class="text-xs font-medium px-3 py-1.5 rounded-md transition
+              {% if period == p %}bg-white shadow text-herba{% else %}text-gray-500 hover:text-gray-700{% endif %}">
+      {{ p }}gg
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{% if not rows %}
+<div class="bg-white rounded-xl border shadow-sm p-12 text-center text-gray-400">
+  Nessun sito con Google Ads configurato. Aggiungi <code>google_ads_customer_id</code> in <code>sites.yaml</code>.
+</div>
+{% else %}
+
+<!-- Account overview table -->
+<div class="bg-white rounded-xl border shadow-sm overflow-hidden mb-8">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+      <tr>
+        <th class="px-4 py-3 text-left">Sito</th>
+        <th class="px-4 py-3 text-right">Impressioni</th>
+        <th class="px-4 py-3 text-right">Click</th>
+        <th class="px-4 py-3 text-right">CTR</th>
+        <th class="px-4 py-3 text-right">Costo (€)</th>
+        <th class="px-4 py-3 text-right">Conversioni</th>
+        <th class="px-4 py-3 text-right">ROAS</th>
+        <th class="px-4 py-3 text-left">Ultimo sync</th>
+        <th class="px-4 py-3 text-left">Azioni</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for row in rows %}
+      {% set s = row.site %}
+      {% set snap = row.snap %}
+      <tr class="hover:bg-gray-50">
+        <td class="px-4 py-3">
+          <a href="/ads/{{ s.slug }}?period={{ period }}" class="font-medium text-herba hover:underline">{{ s.slug }}</a>
+          <div class="text-xs text-gray-400">{{ s.locale }}</div>
+        </td>
+        {% if snap %}
+        <td class="px-4 py-3 text-right">{{ "{:,}".format(snap.impressions) if snap.impressions else '—' }}</td>
+        <td class="px-4 py-3 text-right font-medium">{{ "{:,}".format(snap.clicks) if snap.clicks else '—' }}</td>
+        <td class="px-4 py-3 text-right text-gray-600">
+          {% if snap.ctr is not none %}{{ (snap.ctr * 100) | round(2) }}%{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right font-medium text-red-600">
+          {% if snap.cost %}€{{ "%.2f"|format(snap.cost) }}{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right text-gray-600">
+          {% if snap.conversions is not none %}{{ snap.conversions | round(1) }}{% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-right">
+          {% if snap.roas is not none %}
+            <span class="font-medium {% if snap.roas >= 3 %}text-green-600{% elif snap.roas >= 1 %}text-yellow-600{% else %}text-red-600{% endif %}">
+              {{ snap.roas | round(2) }}x
+            </span>
+          {% else %}—{% endif %}
+        </td>
+        <td class="px-4 py-3 text-xs text-gray-400">
+          {{ snap.snapshot_date.strftime('%d/%m/%Y') if snap.snapshot_date else '—' }}
+        </td>
+        {% else %}
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-right text-gray-300">—</td>
+        <td class="px-4 py-3 text-xs text-gray-300">mai sincronizzato</td>
+        {% endif %}
+        <td class="px-4 py-3">
+          <div class="flex gap-2">
+            <a href="/ads/{{ s.slug }}?period={{ period }}"
+               class="text-xs px-2 py-1 border border-herba text-herba rounded hover:bg-herba-light transition">
+              Campagne
+            </a>
+            <form method="POST" action="/ads/{{ s.slug }}/sync?period={{ period }}" class="inline">
+              <button type="submit" class="text-xs px-2 py-1 border border-gray-300 text-gray-500 rounded hover:bg-gray-50 transition">
+                ↺ Sync
+              </button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Charts: Costo e ROAS -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">Spesa pubblicitaria ({{ period }}gg)</h2>
+    <canvas id="costChart" height="220"></canvas>
+  </div>
+  <div class="bg-white rounded-xl border shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide mb-4">ROAS per sito ({{ period }}gg)</h2>
+    <canvas id="roasChart" height="220"></canvas>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+  var labels = [{% for row in rows %}'{{ row.site.slug }}'{% if not loop.last %},{% endif %}{% endfor %}];
+  var costs  = [{% for row in rows %}{{ row.snap.cost if row.snap and row.snap.cost else 0 }}{% if not loop.last %},{% endif %}{% endfor %}];
+  var roas   = [{% for row in rows %}{{ row.snap.roas if row.snap and row.snap.roas else 0 }}{% if not loop.last %},{% endif %}{% endfor %}];
+
+  new Chart(document.getElementById('costChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{ label: 'Costo (€)', data: costs, backgroundColor: '#ef4444', borderRadius: 4 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+
+  new Chart(document.getElementById('roasChart'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{ label: 'ROAS', data: roas, backgroundColor: '#00A652', borderRadius: 4 }]
+    },
+    options: {
+      plugins: { legend: { display: false } },
+      scales: {
+        y: {
+          beginAtZero: true,
+          ticks: { callback: function(v) { return v + 'x'; } }
+        }
+      }
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

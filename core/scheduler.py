@@ -780,6 +780,30 @@ def article_job(site_slugs: Optional[list] = None) -> None:
         db.close()
 
 
+def ads_sync_job() -> None:
+    """
+    Daily Google Ads sync job (runs at 07:00 via CronTrigger).
+    Syncs all 3 periods for every active site with a google_ads_customer_id.
+    Notifies Telegram only on error.
+    """
+    from core.ads_sync import sync_all_sites_ads
+
+    log.info("ads_sync_job_started", at=datetime.utcnow().isoformat())
+    try:
+        errors = []
+        for period_days in (7, 30, 90):
+            results = sync_all_sites_ads(period_days=period_days)
+            for slug, r in results.items():
+                if not r.get("success") and r.get("error") != "no google_ads_customer_id configured":
+                    errors.append(f"{slug} ({period_days}gg): {r['error']}")
+        if errors:
+            notify_error("Google Ads Sync", "Errori:\n" + "\n".join(f"• {e}" for e in errors))
+        log.info("ads_sync_job_done", errors=len(errors))
+    except Exception as exc:
+        log.error("ads_sync_job_failed", error=str(exc))
+        notify_error("Google Ads Sync Job", str(exc))
+
+
 def ga4_sync_job() -> None:
     """
     Daily GA4 analytics sync job (runs at 06:00 via CronTrigger).
@@ -891,6 +915,15 @@ def start_scheduler() -> BackgroundScheduler:
         trigger=CronTrigger(hour=6, minute=0),
         id="ga4_sync_job",
         name="GA4 analytics daily sync",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    scheduler.add_job(
+        func=ads_sync_job,
+        trigger=CronTrigger(hour=7, minute=0),
+        id="ads_sync_job",
+        name="Google Ads daily sync",
         replace_existing=True,
         misfire_grace_time=3600,
     )

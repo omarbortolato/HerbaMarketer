@@ -40,6 +40,8 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from config import get_all_active_sites, get_site_config
 from core.database import (
+    AdsCampaignSnapshot,
+    AdsSnapshot,
     AnalyticsSnapshot,
     Article,
     ContentTopic,
@@ -1088,3 +1090,127 @@ async def api_article_analytics(article_id: int, db: Session = Depends(get_db)):
 
     _cache_set(cache_key, perf)
     return JSONResponse(perf)
+
+
+# ---------------------------------------------------------------------------
+# Google Ads routes
+# ---------------------------------------------------------------------------
+
+
+@app.get("/ads", response_class=HTMLResponse)
+async def ads_overview(
+    request: Request,
+    period: int = Query(30),
+    db: Session = Depends(get_db),
+):
+    """Overview Google Ads: account-level snapshot per site."""
+    user = request.session.get("user")
+    if period not in _VALID_PERIODS:
+        period = 30
+    active_sites = get_all_active_sites()
+
+    rows = []
+    for site_cfg in active_sites:
+        if not site_cfg.google_ads_customer_id:
+            continue
+        site_db = db.query(Site).filter(Site.slug == site_cfg.slug).first()
+        snap = None
+        if site_db:
+            snap = (
+                db.query(AdsSnapshot)
+                .filter(
+                    AdsSnapshot.site_id == site_db.id,
+                    AdsSnapshot.period_days == period,
+                )
+                .order_by(AdsSnapshot.snapshot_date.desc())
+                .first()
+            )
+        rows.append({"site": site_cfg, "snap": snap})
+
+    return templates.TemplateResponse(
+        "ads/index.html",
+        {
+            "request": request,
+            "current_user": user,
+            "rows": rows,
+            "period": period,
+            "valid_periods": _VALID_PERIODS,
+        },
+    )
+
+
+@app.get("/ads/{site_slug}", response_class=HTMLResponse)
+async def ads_site_detail(
+    site_slug: str,
+    request: Request,
+    period: int = Query(30),
+    db: Session = Depends(get_db),
+):
+    """Per-site Google Ads detail: account overview + campaign breakdown."""
+    user = request.session.get("user")
+    if period not in _VALID_PERIODS:
+        period = 30
+
+    try:
+        site_cfg = get_site_config(site_slug)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Site not found")
+
+    ads_available = bool(site_cfg.google_ads_customer_id)
+
+    site_db = db.query(Site).filter(Site.slug == site_slug).first()
+    snap = None
+    campaigns = []
+    if site_db:
+        snap = (
+            db.query(AdsSnapshot)
+            .filter(
+                AdsSnapshot.site_id == site_db.id,
+                AdsSnapshot.period_days == period,
+            )
+            .order_by(AdsSnapshot.snapshot_date.desc())
+            .first()
+        )
+        campaigns = (
+            db.query(AdsCampaignSnapshot)
+            .filter(
+                AdsCampaignSnapshot.site_id == site_db.id,
+                AdsCampaignSnapshot.period_days == period,
+                AdsCampaignSnapshot.snapshot_date == (snap.snapshot_date if snap else None),
+            )
+            .order_by(AdsCampaignSnapshot.cost.desc())
+            .all()
+            if snap else []
+        )
+
+    return templates.TemplateResponse(
+        "ads/site_detail.html",
+        {
+            "request": request,
+            "current_user": user,
+            "site": site_cfg,
+            "snap": snap,
+            "campaigns": campaigns,
+            "ads_available": ads_available,
+            "period": period,
+            "valid_periods": _VALID_PERIODS,
+        },
+    )
+
+
+@app.post("/ads/{site_slug}/sync")
+async def ads_sync_site(
+    site_slug: str,
+    background_tasks: BackgroundTasks,
+    request: Request,
+    period: int = Query(30),
+):
+    """Force a Google Ads sync for one site (all periods, runs in background)."""
+    from core.ads_sync import sync_site_ads
+
+    def _do_sync():
+        for p in _VALID_PERIODS:
+            sync_site_ads(site_slug, period_days=p)
+
+    background_tasks.add_task(_do_sync)
+    return RedirectResponse(url=f"/ads/{site_slug}?period={period}&syncing=1", status_code=303)

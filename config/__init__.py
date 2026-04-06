@@ -49,6 +49,7 @@ class SiteConfig:
     distributor_url: Optional[str] = None
     wp_author_name: Optional[str] = None   # WP display name for posts (e.g. "Elena")
     ga4_property_id: Optional[str] = None  # GA4 property ID (None or "DA_AGGIUNGERE" = skip)
+    google_ads_customer_id: Optional[str] = None  # Google Ads customer ID without dashes
 
     @property
     def wp_user(self) -> Optional[str]:
@@ -119,6 +120,7 @@ def _load_sites() -> dict[str, SiteConfig]:
             distributor_url=cfg.get("distributor_url"),
             wp_author_name=cfg.get("wp_author_name"),
             ga4_property_id=cfg.get("ga4_property_id"),
+            google_ads_customer_id=cfg.get("google_ads_customer_id"),
         )
     return sites
 
