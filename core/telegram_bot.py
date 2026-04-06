@@ -540,6 +540,38 @@ async def cmd_ga4sync(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         log.error("ga4sync_telegram_failed", error=str(exc))
 
 
+async def cmd_adssync(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """/adssync — manually trigger Google Ads sync for all sites."""
+    from core.ads_sync import sync_all_sites_ads
+
+    await update.message.reply_text("📈 Google Ads sync in corso...")
+    try:
+        results = sync_all_sites_ads()
+        lines = ["<b>Ads Sync completato:</b>\n"]
+        for slug, r in results.items():
+            if r.get("success"):
+                d = r["data"]
+                cost = d.get("cost")
+                cost_str = f"€{cost:.2f}" if cost is not None else "€—"
+                roas = d.get("roas")
+                roas_str = f"{roas:.2f}x" if roas is not None else "—"
+                lines.append(
+                    f"✅ <b>{slug}</b>: {d.get('clicks') or '?'} click, "
+                    f"{cost_str} spesa, ROAS {roas_str} "
+                    f"({d.get('campaigns_synced', 0)} campagne)"
+                )
+            else:
+                err = r.get("error", "unknown")
+                if err == "no google_ads_customer_id configured":
+                    lines.append(f"⏭ <b>{slug}</b>: nessun customer ID configurato")
+                else:
+                    lines.append(f"❌ <b>{slug}</b>: {err}")
+        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+    except Exception as exc:
+        await update.message.reply_text(f"❌ Errore Ads sync: {exc}")
+        log.error("adssync_telegram_failed", error=str(exc))
+
+
 async def handle_url_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle plain text messages that contain a URL — ingest as topic."""
     import re
@@ -765,6 +797,7 @@ def build_application() -> Application:
     app.add_handler(CommandHandler("report", cmd_report))
     app.add_handler(CommandHandler("syncemail", cmd_syncemail))
     app.add_handler(CommandHandler("ga4sync", cmd_ga4sync))
+    app.add_handler(CommandHandler("adssync", cmd_adssync))
     app.add_handler(CallbackQueryHandler(handle_callback))
     # URL messages: intercept plain text containing https?:// links
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url_message))
