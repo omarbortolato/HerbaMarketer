@@ -1214,3 +1214,54 @@ async def ads_sync_site(
 
     background_tasks.add_task(_do_sync)
     return RedirectResponse(url=f"/ads/{site_slug}?period={period}&syncing=1", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Temporary debug endpoint — remove after diagnosis
+# ---------------------------------------------------------------------------
+
+@app.get("/api/debug/db")
+async def debug_db(db: Session = Depends(get_db)):
+    """Show DB counts and latest analytics snapshots for diagnosis."""
+    from fastapi.responses import JSONResponse
+    from sqlalchemy import inspect, text
+
+    # Check which tables exist
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+
+    # Count rows per table
+    counts = {}
+    for t in ["sites", "analytics_snapshots", "ads_snapshots", "ads_campaign_snapshots"]:
+        if t in tables:
+            try:
+                counts[t] = db.execute(text(f"SELECT COUNT(*) FROM {t}")).scalar()
+            except Exception as e:
+                counts[t] = f"error: {e}"
+        else:
+            counts[t] = "TABLE MISSING"
+
+    # Latest analytics snapshots
+    snaps = db.query(AnalyticsSnapshot).order_by(AnalyticsSnapshot.id.desc()).limit(10).all()
+    snap_data = [
+        {
+            "id": s.id,
+            "site_id": s.site_id,
+            "snapshot_date": str(s.snapshot_date),
+            "period_days": s.period_days,
+            "sessions": s.sessions,
+            "pageviews": s.pageviews,
+        }
+        for s in snaps
+    ]
+
+    # Sites in DB
+    sites = db.query(Site).all()
+    site_data = [{"id": s.id, "slug": s.slug} for s in sites]
+
+    return JSONResponse({
+        "tables": tables,
+        "counts": counts,
+        "sites_in_db": site_data,
+        "latest_analytics_snapshots": snap_data,
+    })
