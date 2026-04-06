@@ -66,13 +66,24 @@ class GoogleAdsClient:
     def __init__(self, customer_id: str):
         self._customer_id = customer_id
         self._client = None
+        self._unavailable_reason: Optional[str] = None
 
         if not customer_id:
+            self._unavailable_reason = "no customer_id"
             log.debug("google_ads.client_skipped", reason="no customer_id")
             return
 
         config = _build_config()
         if config is None:
+            missing = [
+                k for k, v in {
+                    "GOOGLE_ADS_DEVELOPER_TOKEN": os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN"),
+                    "GOOGLE_ADS_CLIENT_ID": os.getenv("GOOGLE_ADS_CLIENT_ID"),
+                    "GOOGLE_ADS_CLIENT_SECRET": os.getenv("GOOGLE_ADS_CLIENT_SECRET"),
+                    "GOOGLE_ADS_REFRESH_TOKEN": os.getenv("GOOGLE_ADS_REFRESH_TOKEN"),
+                }.items() if not v
+            ]
+            self._unavailable_reason = f"missing env vars: {', '.join(missing)}"
             return
 
         try:
@@ -80,11 +91,16 @@ class GoogleAdsClient:
             self._client = _GAC.load_from_dict(config)
             log.info("google_ads.client_ready", customer_id=customer_id)
         except Exception as exc:
+            self._unavailable_reason = f"init error: {exc}"
             log.warning("google_ads.client_init_error", error=str(exc))
 
     @property
     def available(self) -> bool:
         return self._client is not None
+
+    @property
+    def unavailable_reason(self) -> Optional[str]:
+        return self._unavailable_reason
 
     # ------------------------------------------------------------------
     # Private helpers

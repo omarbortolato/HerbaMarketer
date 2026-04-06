@@ -48,7 +48,8 @@ def sync_site_ads(
     try:
         client = GoogleAdsClient(customer_id)
         if not client.available:
-            return {"success": False, "error": "Google Ads client not available (check credentials)"}
+            reason = client.unavailable_reason or "unknown"
+            return {"success": False, "error": f"Google Ads client not available: {reason}"}
 
         overview = client.get_account_overview(period_days)
         campaigns = client.get_campaigns(period_days)
