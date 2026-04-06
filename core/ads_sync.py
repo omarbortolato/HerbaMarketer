@@ -54,7 +54,21 @@ def sync_site_ads(
         campaigns = client.get_campaigns(period_days)
 
         site_row = db.query(Site).filter(Site.slug == site_slug).first()
-        site_id = site_row.id if site_row else None
+        if site_row is None:
+            site_row = Site(
+                slug=site_config.slug,
+                url=site_config.url,
+                language=site_config.language,
+                locale=site_config.locale,
+                mautic_campaign_id=site_config.mautic_campaign_id,
+                email_prefix=site_config.email_prefix,
+                platform=site_config.platform,
+                active=site_config.active,
+            )
+            db.add(site_row)
+            db.flush()
+            log.info("ads_sync.site_created_in_db", slug=site_slug)
+        site_id = site_row.id
         today = date.today()
 
         # --- Upsert account snapshot ---
