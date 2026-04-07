@@ -30,10 +30,19 @@ _PERIOD_MAP = {
 
 def _build_config() -> Optional[dict]:
     """Build the google-ads config dict from env vars. Returns None if any key is missing."""
-    dev_token = os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN")
-    client_id = os.getenv("GOOGLE_ADS_CLIENT_ID")
-    client_secret = os.getenv("GOOGLE_ADS_CLIENT_SECRET")
-    refresh_token = os.getenv("GOOGLE_ADS_REFRESH_TOKEN")
+    dev_token = (os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN") or "").strip()
+    client_id = (os.getenv("GOOGLE_ADS_CLIENT_ID") or "").strip()
+    client_secret = (os.getenv("GOOGLE_ADS_CLIENT_SECRET") or "").strip()
+    refresh_token = (os.getenv("GOOGLE_ADS_REFRESH_TOKEN") or "").strip()
+
+    log.debug(
+        "google_ads.credentials_lengths",
+        developer_token_len=len(dev_token),
+        client_id_len=len(client_id),
+        client_secret_len=len(client_secret),
+        refresh_token_len=len(refresh_token),
+        client_id_suffix=client_id[-20:] if client_id else "",
+    )
 
     if not all([dev_token, client_id, client_secret, refresh_token]):
         missing = [

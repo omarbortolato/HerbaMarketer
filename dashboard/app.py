@@ -1155,7 +1155,15 @@ async def ads_test_connection():
         "GOOGLE_ADS_CLIENT_SECRET",
         "GOOGLE_ADS_REFRESH_TOKEN",
     ]
-    vars_present = {k: bool(os.getenv(k)) for k in env_keys}
+    vars_present = {
+        k: {
+            "present": bool(os.getenv(k)),
+            "length": len((os.getenv(k) or "").strip()),
+            # Show last 20 chars to verify format without exposing full value
+            "suffix": (os.getenv(k) or "").strip()[-20:] if os.getenv(k) else "",
+        }
+        for k in env_keys
+    }
 
     try:
         from core.google_ads_client import GoogleAdsClient
