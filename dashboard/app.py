@@ -1139,6 +1139,46 @@ async def ads_overview(
     )
 
 
+# ---------------------------------------------------------------------------
+# Ads connection test endpoint — must be defined BEFORE /ads/{site_slug}
+# ---------------------------------------------------------------------------
+
+@app.get("/ads/test-connection")
+async def ads_test_connection():
+    """Test Google Ads credentials without performing a real sync."""
+    import os
+    from fastapi.responses import JSONResponse
+
+    env_keys = [
+        "GOOGLE_ADS_DEVELOPER_TOKEN",
+        "GOOGLE_ADS_CLIENT_ID",
+        "GOOGLE_ADS_CLIENT_SECRET",
+        "GOOGLE_ADS_REFRESH_TOKEN",
+    ]
+    vars_present = {k: bool(os.getenv(k)) for k in env_keys}
+
+    try:
+        from core.google_ads_client import GoogleAdsClient
+        from config import get_all_active_sites
+        test_customer_id = None
+        for site in get_all_active_sites():
+            if site.google_ads_customer_id:
+                test_customer_id = site.google_ads_customer_id
+                break
+
+        if not test_customer_id:
+            return JSONResponse({"success": False, "error": "no site has google_ads_customer_id configured", "vars_present": vars_present})
+
+        client = GoogleAdsClient(test_customer_id)
+        if client.available:
+            return JSONResponse({"success": True, "error": None, "vars_present": vars_present, "test_customer_id": test_customer_id})
+        else:
+            return JSONResponse({"success": False, "error": client.unavailable_reason, "vars_present": vars_present, "test_customer_id": test_customer_id})
+
+    except Exception as exc:
+        return JSONResponse({"success": False, "error": f"exception: {exc}", "vars_present": vars_present})
+
+
 @app.get("/ads/{site_slug}", response_class=HTMLResponse)
 async def ads_site_detail(
     site_slug: str,
@@ -1215,43 +1255,3 @@ async def ads_sync_site(
     background_tasks.add_task(_do_sync)
     return RedirectResponse(url=f"/ads/{site_slug}?period={period}&syncing=1", status_code=303)
 
-
-# ---------------------------------------------------------------------------
-# Ads connection test endpoint
-# ---------------------------------------------------------------------------
-
-@app.get("/ads/test-connection")
-async def ads_test_connection():
-    """Test Google Ads credentials without performing a real sync."""
-    import os
-    from fastapi.responses import JSONResponse
-
-    env_keys = [
-        "GOOGLE_ADS_DEVELOPER_TOKEN",
-        "GOOGLE_ADS_CLIENT_ID",
-        "GOOGLE_ADS_CLIENT_SECRET",
-        "GOOGLE_ADS_REFRESH_TOKEN",
-    ]
-    vars_present = {k: bool(os.getenv(k)) for k in env_keys}
-
-    try:
-        from core.google_ads_client import GoogleAdsClient
-        # Use the first configured customer_id for the test
-        from config import get_all_active_sites
-        test_customer_id = None
-        for site in get_all_active_sites():
-            if site.google_ads_customer_id:
-                test_customer_id = site.google_ads_customer_id
-                break
-
-        if not test_customer_id:
-            return JSONResponse({"success": False, "error": "no site has google_ads_customer_id configured", "vars_present": vars_present})
-
-        client = GoogleAdsClient(test_customer_id)
-        if client.available:
-            return JSONResponse({"success": True, "error": None, "vars_present": vars_present, "test_customer_id": test_customer_id})
-        else:
-            return JSONResponse({"success": False, "error": client.unavailable_reason, "vars_present": vars_present, "test_customer_id": test_customer_id})
-
-    except Exception as exc:
-        return JSONResponse({"success": False, "error": f"exception: {exc}", "vars_present": vars_present})
