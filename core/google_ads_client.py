@@ -73,16 +73,21 @@ class GoogleAdsClient:
             log.debug("google_ads.client_skipped", reason="no customer_id")
             return
 
+        env_vars = {
+            "GOOGLE_ADS_DEVELOPER_TOKEN": os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN"),
+            "GOOGLE_ADS_CLIENT_ID": os.getenv("GOOGLE_ADS_CLIENT_ID"),
+            "GOOGLE_ADS_CLIENT_SECRET": os.getenv("GOOGLE_ADS_CLIENT_SECRET"),
+            "GOOGLE_ADS_REFRESH_TOKEN": os.getenv("GOOGLE_ADS_REFRESH_TOKEN"),
+        }
+        log.debug(
+            "google_ads.env_vars_check",
+            customer_id=customer_id,
+            **{k: ("SET" if v else "MISSING") for k, v in env_vars.items()},
+        )
+
         config = _build_config()
         if config is None:
-            missing = [
-                k for k, v in {
-                    "GOOGLE_ADS_DEVELOPER_TOKEN": os.getenv("GOOGLE_ADS_DEVELOPER_TOKEN"),
-                    "GOOGLE_ADS_CLIENT_ID": os.getenv("GOOGLE_ADS_CLIENT_ID"),
-                    "GOOGLE_ADS_CLIENT_SECRET": os.getenv("GOOGLE_ADS_CLIENT_SECRET"),
-                    "GOOGLE_ADS_REFRESH_TOKEN": os.getenv("GOOGLE_ADS_REFRESH_TOKEN"),
-                }.items() if not v
-            ]
+            missing = [k for k, v in env_vars.items() if not v]
             self._unavailable_reason = f"missing env vars: {', '.join(missing)}"
             return
 
