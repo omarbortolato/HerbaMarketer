@@ -79,6 +79,7 @@ class GoogleAdsClient:
 
     def __init__(self, customer_id: str):
         self._customer_id = customer_id
+        self._login_customer_id = (os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "").strip()
         self._client = None
         self._unavailable_reason: Optional[str] = None
 
@@ -132,6 +133,11 @@ class GoogleAdsClient:
             return []
         try:
             service = self._client.get_service("GoogleAdsService")
+            log.warning("ads_query_attempt",
+                customer_id=self._customer_id,
+                login_customer_id=self._login_customer_id,
+                query_preview=gaql[:100],
+            )
             response = service.search(customer_id=self._customer_id, query=gaql)
             rows = list(response)
             log.warning(
