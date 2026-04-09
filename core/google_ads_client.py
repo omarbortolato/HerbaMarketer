@@ -34,6 +34,7 @@ def _build_config() -> Optional[dict]:
     client_id = (os.getenv("GOOGLE_ADS_CLIENT_ID") or "").strip()
     client_secret = (os.getenv("GOOGLE_ADS_CLIENT_SECRET") or "").strip()
     refresh_token = (os.getenv("GOOGLE_ADS_REFRESH_TOKEN") or "").strip()
+    login_customer_id = (os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "").strip()
 
     log.debug(
         "google_ads.credentials_lengths",
@@ -41,6 +42,7 @@ def _build_config() -> Optional[dict]:
         client_id_len=len(client_id),
         client_secret_len=len(client_secret),
         refresh_token_len=len(refresh_token),
+        login_customer_id=login_customer_id or "NOT_SET",
         client_id_suffix=client_id[-20:] if client_id else "",
     )
 
@@ -56,13 +58,16 @@ def _build_config() -> Optional[dict]:
         log.warning("google_ads.missing_credentials", missing=missing)
         return None
 
-    return {
+    config = {
         "developer_token": dev_token,
         "client_id": client_id,
         "client_secret": client_secret,
         "refresh_token": refresh_token,
         "use_proto_plus": True,
     }
+    if login_customer_id:
+        config["login_customer_id"] = login_customer_id
+    return config
 
 
 class GoogleAdsClient:
@@ -87,6 +92,7 @@ class GoogleAdsClient:
             "GOOGLE_ADS_CLIENT_ID": os.getenv("GOOGLE_ADS_CLIENT_ID"),
             "GOOGLE_ADS_CLIENT_SECRET": os.getenv("GOOGLE_ADS_CLIENT_SECRET"),
             "GOOGLE_ADS_REFRESH_TOKEN": os.getenv("GOOGLE_ADS_REFRESH_TOKEN"),
+            "GOOGLE_ADS_LOGIN_CUSTOMER_ID": os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID"),
         }
         log.debug(
             "google_ads.env_vars_check",
@@ -127,7 +133,15 @@ class GoogleAdsClient:
         try:
             service = self._client.get_service("GoogleAdsService")
             response = service.search(customer_id=self._customer_id, query=gaql)
-            return list(response)
+            rows = list(response)
+            log.warning(
+                "google_ads.DEBUG_query_result",
+                customer_id=self._customer_id,
+                login_customer_id=(os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "NOT_SET").strip(),
+                rows_returned=len(rows),
+                raw_response=str(response) if not rows else "non-empty",
+            )
+            return rows
         except Exception as exc:
             log.warning("google_ads.query_error", error=str(exc), customer=self._customer_id)
             return []
@@ -216,6 +230,12 @@ class GoogleAdsClient:
               AND campaign.status != 'REMOVED'
             ORDER BY metrics.cost_micros DESC
         """
+        log.warning(
+            "google_ads.DEBUG_get_campaigns_called",
+            customer_id=self._customer_id,
+            login_customer_id=(os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "NOT_SET").strip(),
+            period_days=period_days,
+        )
         rows = self._run_query(gaql)
         results = []
         for row in rows:
