@@ -48,11 +48,8 @@ google-analytics-data==0.18.0
 google-auth==2.29.0
 
 # --- Google Ads ---
-google-ads==21.3.0
-googleapis-common-protos==1.63.0
-grpcio==1.62.1
-grpcio-status==1.62.1
-protobuf==4.25.3
+google-ads==25.1.0
+setuptools>=65.0.0
 
 # --- Dev utilities ---
 python-multipart==0.0.18
