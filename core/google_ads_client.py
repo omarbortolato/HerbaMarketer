@@ -143,7 +143,14 @@ class GoogleAdsClient:
             )
             return rows
         except Exception as exc:
-            log.warning("google_ads.query_error", error=str(exc), customer=self._customer_id)
+            import traceback
+            log.warning(
+                "google_ads.query_error",
+                error=str(exc),
+                error_type=type(exc).__name__,
+                traceback=traceback.format_exc(),
+                customer=self._customer_id,
+            )
             return []
 
     @staticmethod

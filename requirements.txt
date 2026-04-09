@@ -49,6 +49,8 @@ google-auth==2.29.0
 
 # --- Google Ads ---
 google-ads==25.1.0
+grpcio==1.62.2
+grpcio-status==1.62.2
 
 # --- Dev utilities ---
 python-multipart==0.0.18
