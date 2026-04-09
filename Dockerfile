@@ -10,6 +10,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Install Python dependencies
 COPY requirements.txt .
+RUN pip uninstall -y google-ads google-auth googleapis-common-protos \
+    grpcio grpcio-status protobuf 2>/dev/null || true
+RUN pip install --no-cache-dir --force-reinstall \
+    google-ads==21.3.0 \
+    google-auth==2.29.0 \
+    googleapis-common-protos==1.63.0 \
+    grpcio==1.62.1 \
+    grpcio-status==1.62.1 \
+    protobuf==4.25.3
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy project
