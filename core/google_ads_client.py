@@ -108,7 +108,7 @@ class GoogleAdsClient:
 
         try:
             from google.ads.googleads.client import GoogleAdsClient as _GAC
-            self._client = _GAC.load_from_dict(config)
+            self._client = _GAC.load_from_dict(config, version="v17")
             log.info("google_ads.client_ready", customer_id=customer_id)
         except Exception as exc:
             self._unavailable_reason = f"init error: {exc}"
@@ -226,16 +226,15 @@ class GoogleAdsClient:
               campaign.id,
               campaign.name,
               campaign.status,
-              metrics.impressions,
+              campaign.advertising_channel_type,
               metrics.clicks,
-              metrics.ctr,
               metrics.cost_micros,
+              metrics.conversions_value,
               metrics.conversions,
-              metrics.conversions_value
+              metrics.impressions
             FROM campaign
             WHERE segments.date DURING {date_range}
               AND campaign.status != 'REMOVED'
-            ORDER BY metrics.cost_micros DESC
         """
         log.warning(
             "google_ads.DEBUG_get_campaigns_called",
@@ -257,9 +256,9 @@ class GoogleAdsClient:
                     "campaign_id": str(row.campaign.id),
                     "campaign_name": row.campaign.name,
                     "status": row.campaign.status.name,  # ENABLED / PAUSED
+                    "advertising_channel_type": row.campaign.advertising_channel_type.name,
                     "impressions": int(m.impressions),
                     "clicks": int(m.clicks),
-                    "ctr": round(float(m.ctr), 4),
                     "cost": round(cost, 2),
                     "conversions": round(float(m.conversions), 1),
                     "conversions_value": round(conv_value, 2),
