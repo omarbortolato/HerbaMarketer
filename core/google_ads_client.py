@@ -109,7 +109,7 @@ class GoogleAdsClient:
 
         try:
             from google.ads.googleads.client import GoogleAdsClient as _GAC
-            self._client = _GAC.load_from_dict(config, version="v17")
+            self._client = _GAC.load_from_dict(config)
             log.info("google_ads.client_ready", customer_id=customer_id)
         except Exception as exc:
             self._unavailable_reason = f"init error: {exc}"
