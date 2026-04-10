@@ -15,6 +15,7 @@ All methods return empty structures on error — never crash the main process.
 """
 
 import os
+from datetime import date
 from typing import Optional
 
 import structlog
@@ -133,30 +134,12 @@ class GoogleAdsClient:
             return []
         try:
             service = self._client.get_service("GoogleAdsService")
-            log.warning("ads_query_attempt",
-                customer_id=self._customer_id,
-                login_customer_id=self._login_customer_id,
-                query_preview=gaql[:100],
-            )
             response = service.search(customer_id=self._customer_id, query=gaql)
             rows = list(response)
-            log.warning(
-                "google_ads.DEBUG_query_result",
-                customer_id=self._customer_id,
-                login_customer_id=(os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "NOT_SET").strip(),
-                rows_returned=len(rows),
-                raw_response=str(response) if not rows else "non-empty",
-            )
+            log.debug("google_ads.query_ok", customer=self._customer_id, rows=len(rows))
             return rows
         except Exception as exc:
-            import traceback
-            log.warning(
-                "google_ads.query_error",
-                error=str(exc),
-                error_type=type(exc).__name__,
-                traceback=traceback.format_exc(),
-                customer=self._customer_id,
-            )
+            log.warning("google_ads.query_error", error=str(exc), customer=self._customer_id)
             return []
 
     @staticmethod
@@ -242,12 +225,6 @@ class GoogleAdsClient:
             WHERE segments.date DURING {date_range}
               AND campaign.status != 'REMOVED'
         """
-        log.warning(
-            "google_ads.DEBUG_get_campaigns_called",
-            customer_id=self._customer_id,
-            login_customer_id=(os.getenv("GOOGLE_ADS_LOGIN_CUSTOMER_ID") or "NOT_SET").strip(),
-            period_days=period_days,
-        )
         rows = self._run_query(gaql)
         results = []
         for row in rows:
@@ -272,4 +249,53 @@ class GoogleAdsClient:
                 })
             except Exception as exc:
                 log.warning("google_ads.parse_campaign_row_error", error=str(exc))
+        return results
+
+    def get_daily_rows(self, from_date: date, to_date: date) -> list[dict]:
+        """
+        Return per-campaign per-day KPIs segmented by date.
+
+        Each entry:
+            {campaign_id, campaign_name, row_date (str YYYY-MM-DD),
+             impressions, clicks, cost, conversions, conversions_value}
+        """
+        gaql = f"""
+            SELECT
+              campaign.id,
+              campaign.name,
+              metrics.impressions,
+              metrics.clicks,
+              metrics.cost_micros,
+              metrics.conversions,
+              metrics.conversions_value,
+              segments.date
+            FROM campaign
+            WHERE segments.date BETWEEN '{from_date.isoformat()}' AND '{to_date.isoformat()}'
+              AND campaign.status != 'REMOVED'
+        """
+        rows = self._run_query(gaql)
+        results = []
+        for row in rows:
+            try:
+                m = row.metrics
+                cost = self._micros_to_eur(m.cost_micros)
+                conv_value = float(m.conversions_value)
+                impressions = int(m.impressions)
+                clicks = int(m.clicks)
+                if impressions == 0 and cost == 0:
+                    continue
+                results.append({
+                    "campaign_id": str(row.campaign.id),
+                    "campaign_name": row.campaign.name,
+                    "row_date": row.segments.date,  # string "YYYY-MM-DD"
+                    "impressions": impressions,
+                    "clicks": clicks,
+                    "cost": round(cost, 2),
+                    "conversions": round(float(m.conversions), 1),
+                    "conversions_value": round(conv_value, 2),
+                })
+            except Exception as exc:
+                log.warning("google_ads.parse_daily_row_error", error=str(exc))
+        log.info("google_ads.daily_rows_fetched", customer=self._customer_id,
+                 from_date=str(from_date), to_date=str(to_date), count=len(results))
         return results

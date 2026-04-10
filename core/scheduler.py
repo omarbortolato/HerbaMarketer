@@ -783,19 +783,31 @@ def article_job(site_slugs: Optional[list] = None) -> None:
 def ads_sync_job() -> None:
     """
     Daily Google Ads sync job (runs at 07:00 via CronTrigger).
-    Syncs all 3 periods for every active site with a google_ads_customer_id.
+    - Syncs all 3 period snapshots (7/30/90gg) for the overview/campaign tables.
+    - Syncs yesterday's day-granular rows for the trend chart.
     Notifies Telegram only on error.
     """
-    from core.ads_sync import sync_all_sites_ads
+    from datetime import date, timedelta
+    from core.ads_sync import sync_all_sites_ads, sync_all_sites_ads_daily
 
     log.info("ads_sync_job_started", at=datetime.utcnow().isoformat())
     try:
         errors = []
+
+        # Period snapshots (7 / 30 / 90 days)
         for period_days in (7, 30, 90):
             results = sync_all_sites_ads(period_days=period_days)
             for slug, r in results.items():
                 if not r.get("success") and r.get("error") != "no google_ads_customer_id configured":
                     errors.append(f"{slug} ({period_days}gg): {r['error']}")
+
+        # Daily row for yesterday (incremental, keeps the trend chart up to date)
+        yesterday = date.today() - timedelta(days=1)
+        daily_results = sync_all_sites_ads_daily(from_date=yesterday, to_date=yesterday)
+        for slug, r in daily_results.items():
+            if not r.get("success") and r.get("error") != "no google_ads_customer_id configured":
+                errors.append(f"{slug} (daily): {r['error']}")
+
         if errors:
             notify_error("Google Ads Sync", "Errori:\n" + "\n".join(f"• {e}" for e in errors))
         log.info("ads_sync_job_done", errors=len(errors))

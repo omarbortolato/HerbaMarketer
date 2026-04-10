@@ -41,6 +41,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from config import get_all_active_sites, get_site_config
 from core.database import (
     AdsCampaignSnapshot,
+    AdsDailyRow,
     AdsSnapshot,
     AnalyticsSnapshot,
     Article,
@@ -1262,4 +1263,121 @@ async def ads_sync_site(
 
     background_tasks.add_task(_do_sync)
     return RedirectResponse(url=f"/ads/{site_slug}?period={period}&syncing=1", status_code=303)
+
+
+@app.post("/ads/{site_slug}/sync-daily")
+async def ads_sync_site_daily(
+    site_slug: str,
+    background_tasks: BackgroundTasks,
+    period: int = Query(30),
+):
+    """Backfill 90 days of daily rows for the trend chart (runs in background)."""
+    from core.ads_sync import sync_site_ads_daily
+
+    background_tasks.add_task(sync_site_ads_daily, site_slug)  # defaults: last 90 days
+    return RedirectResponse(url=f"/ads/{site_slug}?period={period}&syncing=1", status_code=303)
+
+
+@app.get("/api/ads/{site_slug}/daily")
+async def ads_daily_api(
+    site_slug: str,
+    from_date: str = Query(None),
+    to_date: str = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Return day-granular Google Ads rows for a site in the requested date range.
+    Response: { daily_totals: [...], campaigns: [...] }
+    """
+    from datetime import date as _date, timedelta
+    from collections import defaultdict
+    from fastapi.responses import JSONResponse
+
+    today = _date.today()
+    try:
+        to_dt = _date.fromisoformat(to_date) if to_date else today - timedelta(days=1)
+        from_dt = _date.fromisoformat(from_date) if from_date else to_dt - timedelta(days=29)
+    except ValueError:
+        to_dt = today - timedelta(days=1)
+        from_dt = to_dt - timedelta(days=29)
+
+    site_db = db.query(Site).filter(Site.slug == site_slug).first()
+    if not site_db:
+        return JSONResponse({"daily_totals": [], "campaigns": []})
+
+    rows = (
+        db.query(AdsDailyRow)
+        .filter(
+            AdsDailyRow.site_id == site_db.id,
+            AdsDailyRow.row_date >= from_dt,
+            AdsDailyRow.row_date <= to_dt,
+        )
+        .order_by(AdsDailyRow.row_date, AdsDailyRow.campaign_id)
+        .all()
+    )
+
+    # Aggregate by date → account-level daily totals
+    daily: dict = defaultdict(lambda: {"impressions": 0, "clicks": 0, "cost": 0.0,
+                                        "conversions": 0.0, "conversions_value": 0.0})
+    campaigns: dict = {}  # campaign_id → name
+
+    for r in rows:
+        ds = r.row_date.isoformat()
+        daily[ds]["impressions"] += r.impressions or 0
+        daily[ds]["clicks"] += r.clicks or 0
+        daily[ds]["cost"] += r.cost or 0.0
+        daily[ds]["conversions"] += r.conversions or 0.0
+        daily[ds]["conversions_value"] += r.conversions_value or 0.0
+        if r.campaign_id and r.campaign_id not in campaigns:
+            campaigns[r.campaign_id] = r.campaign_name or r.campaign_id
+
+    daily_totals = []
+    for ds in sorted(daily.keys()):
+        t = daily[ds]
+        cost = round(t["cost"], 2)
+        roas = round(t["conversions_value"] / cost, 2) if cost > 0 else None
+        daily_totals.append({
+            "date": ds,
+            "impressions": t["impressions"],
+            "clicks": t["clicks"],
+            "cost": cost,
+            "conversions": round(t["conversions"], 1),
+            "conversions_value": round(t["conversions_value"], 2),
+            "roas": roas,
+        })
+
+    # Per-campaign totals for the period
+    camp_totals: dict = defaultdict(lambda: {"name": "", "impressions": 0, "clicks": 0,
+                                              "cost": 0.0, "conversions": 0.0, "conversions_value": 0.0})
+    for r in rows:
+        if not r.campaign_id:
+            continue
+        ct = camp_totals[r.campaign_id]
+        ct["name"] = r.campaign_name or r.campaign_id
+        ct["impressions"] += r.impressions or 0
+        ct["clicks"] += r.clicks or 0
+        ct["cost"] += r.cost or 0.0
+        ct["conversions"] += r.conversions or 0.0
+        ct["conversions_value"] += r.conversions_value or 0.0
+
+    campaign_list = []
+    for cid, ct in sorted(camp_totals.items(), key=lambda x: x[1]["cost"], reverse=True):
+        cost = round(ct["cost"], 2)
+        campaign_list.append({
+            "campaign_id": cid,
+            "campaign_name": ct["name"],
+            "impressions": ct["impressions"],
+            "clicks": ct["clicks"],
+            "cost": cost,
+            "conversions": round(ct["conversions"], 1),
+            "conversions_value": round(ct["conversions_value"], 2),
+            "roas": round(ct["conversions_value"] / cost, 2) if cost > 0 else None,
+        })
+
+    return JSONResponse({
+        "daily_totals": daily_totals,
+        "campaigns": campaign_list,
+        "from_date": from_dt.isoformat(),
+        "to_date": to_dt.isoformat(),
+    })
 

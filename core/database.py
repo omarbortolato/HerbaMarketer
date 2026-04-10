@@ -90,6 +90,7 @@ class Site(Base):
     analytics_snapshots = relationship("AnalyticsSnapshot", back_populates="site")
     ads_snapshots = relationship("AdsSnapshot", back_populates="site")
     ads_campaign_snapshots = relationship("AdsCampaignSnapshot", back_populates="site")
+    ads_daily_rows = relationship("AdsDailyRow", back_populates="site")
 
     def __repr__(self) -> str:
         return f"<Site slug={self.slug!r} lang={self.language!r}>"
@@ -361,6 +362,38 @@ class AdsCampaignSnapshot(Base):
 
     def __repr__(self) -> str:
         return f"<AdsCampaignSnapshot site_id={self.site_id} campaign={self.campaign_name!r} date={self.snapshot_date}>"
+
+
+class AdsDailyRow(Base):
+    """
+    Day-granular Google Ads data per site + campaign.
+    One row per (site, campaign, date). campaign_id=None means account-level total.
+    Upserted daily by the 07:00 job (yesterday's data) or on-demand backfill.
+    """
+
+    __tablename__ = "ads_daily_rows"
+    __table_args__ = (
+        UniqueConstraint("site_id", "campaign_id", "row_date", name="uq_ads_daily_row"),
+    )
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    site_id: Optional[int] = Column(Integer, ForeignKey("sites.id"), nullable=True)
+    campaign_id: Optional[str] = Column(String, nullable=True)   # None = account-level
+    campaign_name: Optional[str] = Column(String, nullable=True)
+    row_date: date = Column(Date, nullable=False, index=True)
+
+    impressions: Optional[int] = Column(Integer, nullable=True)
+    clicks: Optional[int] = Column(Integer, nullable=True)
+    cost: Optional[float] = Column(Float, nullable=True)
+    conversions: Optional[float] = Column(Float, nullable=True)
+    conversions_value: Optional[float] = Column(Float, nullable=True)
+
+    synced_at: datetime = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    site = relationship("Site", back_populates="ads_daily_rows")
+
+    def __repr__(self) -> str:
+        return f"<AdsDailyRow site_id={self.site_id} date={self.row_date} campaign={self.campaign_id!r}>"
 
 
 # ---------------------------------------------------------------------------

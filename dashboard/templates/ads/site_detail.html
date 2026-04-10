@@ -167,9 +167,223 @@
 </div>
 {% endif %}
 
+<!-- ====================================================================== -->
+<!-- TREND GIORNALIERO                                                       -->
+<!-- ====================================================================== -->
+<div class="mt-8">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-semibold text-gray-800">📈 Trend giornaliero</h2>
+    <form method="POST" action="/ads/{{ site.slug }}/sync-daily?period={{ period }}">
+      <button type="submit"
+              class="text-xs px-3 py-1.5 border border-gray-300 text-gray-500 rounded-lg hover:bg-gray-50 transition">
+        ↺ Backfill 90gg
+      </button>
+    </form>
+  </div>
+
+  <!-- Date range controls -->
+  <div class="bg-white rounded-xl border shadow-sm p-4 mb-4">
+    <div class="flex flex-wrap items-center gap-3">
+      <!-- Presets -->
+      <div class="flex gap-1 bg-gray-100 rounded-lg p-1">
+        <button onclick="setPreset(7)"  id="preset-7"  class="preset-btn text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">7gg</button>
+        <button onclick="setPreset(30)" id="preset-30" class="preset-btn text-xs font-medium px-3 py-1.5 rounded-md transition bg-white shadow text-herba">30gg</button>
+        <button onclick="setPreset(90)" id="preset-90" class="preset-btn text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">90gg</button>
+      </div>
+      <!-- Custom range -->
+      <div class="flex items-center gap-2 text-sm text-gray-600">
+        <span>dal</span>
+        <input type="date" id="from-date" class="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-herba">
+        <span>al</span>
+        <input type="date" id="to-date"   class="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-herba">
+        <button onclick="loadData()" class="bg-herba text-white text-xs px-3 py-1.5 rounded-lg hover:bg-herba-dark transition">Applica</button>
+      </div>
+      <!-- Metric toggle -->
+      <div class="ml-auto flex gap-1 bg-gray-100 rounded-lg p-1">
+        <button onclick="setMetric('clicks')"  id="metric-clicks"  class="metric-btn text-xs font-medium px-3 py-1.5 rounded-md transition bg-white shadow text-herba">Click</button>
+        <button onclick="setMetric('cost')"    id="metric-cost"    class="metric-btn text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">Costo</button>
+        <button onclick="setMetric('impressions')" id="metric-impressions" class="metric-btn text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">Impr.</button>
+        <button onclick="setMetric('conversions')" id="metric-conversions" class="metric-btn text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">Conv.</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="bg-white rounded-xl border shadow-sm p-5 mb-4">
+    <div id="chart-empty" class="hidden text-center text-gray-400 py-12">
+      Nessun dato per il periodo selezionato — clicca "Backfill 90gg" per caricare i dati storici.
+    </div>
+    <canvas id="trendChart" height="120"></canvas>
+  </div>
+
+  <!-- Campaign totals table -->
+  <div id="camp-table-wrap" class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b bg-gray-50">
+      <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Riepilogo campagne — periodo selezionato</h3>
+    </div>
+    <div id="camp-table-body">
+      <div class="p-8 text-center text-gray-400 text-sm">Caricamento…</div>
+    </div>
+  </div>
+</div>
+
 {% if request.query_params.get('syncing') %}
 <div class="fixed bottom-6 right-6 bg-herba text-white text-sm px-4 py-3 rounded-xl shadow-lg">
   ↺ Sync in background — aggiorna la pagina tra qualche secondo.
 </div>
 {% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  var siteSlug = '{{ site.slug }}';
+  var activeMetric = 'clicks';
+  var activePreset = 30;
+  var chart = null;
+
+  // ---- helpers ----
+  function fmt(n, isCurrency) {
+    if (n == null) return '—';
+    return isCurrency ? '€' + n.toFixed(2) : n.toLocaleString('it-IT');
+  }
+  function isoToday() {
+    return new Date().toISOString().slice(0, 10);
+  }
+  function isoMinus(days) {
+    var d = new Date();
+    d.setDate(d.getDate() - days);
+    return d.toISOString().slice(0, 10);
+  }
+
+  // ---- preset / date controls ----
+  window.setPreset = function (days) {
+    activePreset = days;
+    document.getElementById('to-date').value   = isoMinus(1);
+    document.getElementById('from-date').value = isoMinus(days);
+    document.querySelectorAll('.preset-btn').forEach(function (b) {
+      b.className = b.className.replace('bg-white shadow text-herba', 'text-gray-500 hover:text-gray-700');
+    });
+    var btn = document.getElementById('preset-' + days);
+    if (btn) btn.className = btn.className.replace('text-gray-500 hover:text-gray-700', 'bg-white shadow text-herba');
+    loadData();
+  };
+
+  window.setMetric = function (m) {
+    activeMetric = m;
+    document.querySelectorAll('.metric-btn').forEach(function (b) {
+      b.className = b.className.replace('bg-white shadow text-herba', 'text-gray-500 hover:text-gray-700');
+    });
+    var btn = document.getElementById('metric-' + m);
+    if (btn) btn.className = btn.className.replace('text-gray-500 hover:text-gray-700', 'bg-white shadow text-herba');
+    if (chart) renderChart(chart._lastData);
+  };
+
+  // ---- API call ----
+  window.loadData = function () {
+    var from = document.getElementById('from-date').value;
+    var to   = document.getElementById('to-date').value;
+    if (!from || !to) return;
+    fetch('/api/ads/' + siteSlug + '/daily?from_date=' + from + '&to_date=' + to)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        renderChart(data.daily_totals || []);
+        renderCampaignTable(data.campaigns || []);
+      })
+      .catch(function (e) { console.error(e); });
+  };
+
+  // ---- chart ----
+  function renderChart(rows) {
+    var empty = document.getElementById('chart-empty');
+    var canvas = document.getElementById('trendChart');
+
+    if (!rows || rows.length === 0) {
+      empty.classList.remove('hidden');
+      canvas.classList.add('hidden');
+      if (chart) { chart.destroy(); chart = null; }
+      return;
+    }
+    empty.classList.add('hidden');
+    canvas.classList.remove('hidden');
+
+    var labels = rows.map(function (r) { return r.date; });
+    var metricMap = {
+      clicks:       { label: 'Click',       color: '#00A652', data: rows.map(function(r){ return r.clicks; }) },
+      cost:         { label: 'Costo (€)',   color: '#ef4444', data: rows.map(function(r){ return r.cost; }) },
+      impressions:  { label: 'Impressioni', color: '#6366f1', data: rows.map(function(r){ return r.impressions; }) },
+      conversions:  { label: 'Conversioni', color: '#f59e0b', data: rows.map(function(r){ return r.conversions; }) },
+    };
+    var m = metricMap[activeMetric];
+
+    var cfg = {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: m.label,
+          data: m.data,
+          borderColor: m.color,
+          backgroundColor: m.color + '20',
+          borderWidth: 2,
+          pointRadius: rows.length > 60 ? 0 : 3,
+          tension: 0.3,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 12, font: { size: 10 } } },
+          y: { beginAtZero: true, ticks: { font: { size: 10 } } }
+        }
+      }
+    };
+
+    if (chart) { chart.destroy(); }
+    chart = new Chart(canvas, cfg);
+    chart._lastData = rows;
+  }
+
+  // ---- campaign table ----
+  function renderCampaignTable(campaigns) {
+    var wrap = document.getElementById('camp-table-body');
+    if (!campaigns || campaigns.length === 0) {
+      wrap.innerHTML = '<div class="p-8 text-center text-gray-400 text-sm">Nessuna campagna con dati nel periodo.</div>';
+      return;
+    }
+    var html = '<table class="w-full text-sm"><thead class="bg-gray-50 text-gray-500 text-xs uppercase">'
+      + '<tr>'
+      + '<th class="px-4 py-3 text-left">Campagna</th>'
+      + '<th class="px-4 py-3 text-right">Impr.</th>'
+      + '<th class="px-4 py-3 text-right">Click</th>'
+      + '<th class="px-4 py-3 text-right">Costo (€)</th>'
+      + '<th class="px-4 py-3 text-right">Conv.</th>'
+      + '<th class="px-4 py-3 text-right">Conv. Value</th>'
+      + '<th class="px-4 py-3 text-right">ROAS</th>'
+      + '</tr></thead><tbody class="divide-y divide-gray-100">';
+    campaigns.forEach(function (c) {
+      var roas = c.roas != null
+        ? '<span class="font-medium ' + (c.roas >= 3 ? 'text-green-600' : c.roas >= 1 ? 'text-yellow-600' : 'text-red-600') + '">' + c.roas.toFixed(2) + 'x</span>'
+        : '—';
+      html += '<tr class="hover:bg-gray-50">'
+        + '<td class="px-4 py-3 font-medium max-w-xs"><span class="block truncate" title="' + c.campaign_name + '">' + c.campaign_name + '</span></td>'
+        + '<td class="px-4 py-3 text-right text-gray-600">' + (c.impressions || 0).toLocaleString('it-IT') + '</td>'
+        + '<td class="px-4 py-3 text-right font-medium">' + (c.clicks || 0).toLocaleString('it-IT') + '</td>'
+        + '<td class="px-4 py-3 text-right text-red-600 font-medium">€' + (c.cost || 0).toFixed(2) + '</td>'
+        + '<td class="px-4 py-3 text-right text-gray-600">' + (c.conversions || 0).toFixed(1) + '</td>'
+        + '<td class="px-4 py-3 text-right text-gray-600">€' + (c.conversions_value || 0).toFixed(2) + '</td>'
+        + '<td class="px-4 py-3 text-right">' + roas + '</td>'
+        + '</tr>';
+    });
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+  }
+
+  // ---- init ----
+  document.getElementById('to-date').value   = isoMinus(1);
+  document.getElementById('from-date').value = isoMinus(30);
+  loadData();
+})();
+</script>
 {% endblock %}
