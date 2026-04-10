@@ -48,7 +48,7 @@ google-analytics-data==0.18.0
 google-auth==2.29.0
 
 # --- Google Ads ---
-google-ads==25.1.0
+google-ads
 grpcio==1.62.1
 grpcio-status==1.62.1
 setuptools>=65.0.0
