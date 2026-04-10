@@ -152,9 +152,282 @@
 </div>
 {% endif %}
 
+<!-- ====================================================================== -->
+<!-- AI SUGGESTIONS BOX                                                      -->
+<!-- ====================================================================== -->
+<div class="bg-gradient-to-br from-herba/5 to-green-50 rounded-xl border border-herba/20 shadow-sm p-5 mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <div class="flex items-center gap-2">
+      <span class="text-lg">🤖</span>
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Suggerimenti AI — Analytics</h2>
+      <span id="sugg-date" class="text-xs text-gray-400"></span>
+    </div>
+    <form method="POST" action="/analytics/{{ site.slug }}/generate-suggestions?period={{ period }}">
+      <button type="submit" class="text-xs px-3 py-1.5 border border-herba text-herba rounded-lg hover:bg-herba hover:text-white transition">
+        ↻ Rigenera
+      </button>
+    </form>
+  </div>
+  <ul id="sugg-list" class="space-y-2 text-sm text-gray-700">
+    <li class="text-gray-400 italic">Caricamento suggerimenti…</li>
+  </ul>
+</div>
+
+<!-- ====================================================================== -->
+<!-- GOOGLE SEARCH CONSOLE                                                    -->
+<!-- ====================================================================== -->
+<div class="mt-4 mb-2 flex items-center justify-between">
+  <h2 class="text-lg font-semibold text-gray-800">🔍 Google Search Console</h2>
+  <form method="POST" action="/analytics/{{ site.slug }}/sync-gsc?period={{ period }}">
+    <button type="submit" class="text-xs px-3 py-1.5 border border-gray-300 text-gray-500 rounded-lg hover:bg-gray-50 transition">
+      ↺ Backfill 90gg
+    </button>
+  </form>
+</div>
+
+<!-- GSC date range controls -->
+<div class="bg-white rounded-xl border shadow-sm p-4 mb-4">
+  <div class="flex flex-wrap items-center gap-3">
+    <div class="flex gap-1 bg-gray-100 rounded-lg p-1">
+      <button onclick="gscPreset(7)"  id="gp-7"  class="gsc-preset text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">7gg</button>
+      <button onclick="gscPreset(30)" id="gp-30" class="gsc-preset text-xs font-medium px-3 py-1.5 rounded-md transition bg-white shadow text-herba">30gg</button>
+      <button onclick="gscPreset(90)" id="gp-90" class="gsc-preset text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">90gg</button>
+    </div>
+    <div class="flex items-center gap-2 text-sm text-gray-600">
+      <span>dal</span>
+      <input type="date" id="gsc-from" class="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-herba">
+      <span>al</span>
+      <input type="date" id="gsc-to"   class="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-herba">
+      <button onclick="gscLoad()" class="bg-herba text-white text-xs px-3 py-1.5 rounded-lg hover:bg-herba-dark transition">Applica</button>
+    </div>
+    <div class="ml-auto flex gap-1 bg-gray-100 rounded-lg p-1">
+      <button onclick="gscMetric('clicks')"      id="gm-clicks"      class="gsc-metric text-xs font-medium px-3 py-1.5 rounded-md transition bg-white shadow text-herba">Click</button>
+      <button onclick="gscMetric('impressions')" id="gm-impressions" class="gsc-metric text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">Impr.</button>
+      <button onclick="gscMetric('ctr')"         id="gm-ctr"         class="gsc-metric text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">CTR</button>
+      <button onclick="gscMetric('position')"    id="gm-position"    class="gsc-metric text-xs font-medium px-3 py-1.5 rounded-md transition text-gray-500 hover:text-gray-700">Posiz.</button>
+    </div>
+  </div>
+</div>
+
+<!-- GSC KPI cards (populated by JS) -->
+<div id="gsc-kpi" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4"></div>
+
+<!-- GSC Chart -->
+<div class="bg-white rounded-xl border shadow-sm p-5 mb-4">
+  <div id="gsc-chart-empty" class="hidden text-center text-gray-400 py-12 text-sm">
+    Nessun dato GSC — clicca "Backfill 90gg" per caricare i dati storici.
+  </div>
+  <canvas id="gscChart" height="110"></canvas>
+</div>
+
+<!-- GSC tables: queries + pages side by side -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+  <!-- Top Queries -->
+  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Top Query (30gg)</h3>
+      <span id="gsc-queries-period" class="text-xs text-gray-400"></span>
+    </div>
+    <div id="gsc-queries-body">
+      <div class="p-6 text-center text-gray-400 text-sm">Caricamento…</div>
+    </div>
+  </div>
+  <!-- Top Pages -->
+  <div class="bg-white rounded-xl border shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b bg-gray-50 flex items-center justify-between">
+      <h3 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Top Pagine (30gg)</h3>
+      <span id="gsc-pages-period" class="text-xs text-gray-400"></span>
+    </div>
+    <div id="gsc-pages-body">
+      <div class="p-6 text-center text-gray-400 text-sm">Caricamento…</div>
+    </div>
+  </div>
+</div>
+
 {% if request.query_params.get('syncing') %}
 <div class="fixed bottom-6 right-6 bg-herba text-white text-sm px-4 py-3 rounded-xl shadow-lg">
   ↺ Sync in background — aggiorna la pagina tra qualche secondo.
 </div>
 {% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+(function () {
+  var slug = '{{ site.slug }}';
+  var gscChart = null;
+  var gscMetricActive = 'clicks';
+
+  // ---- utils ----
+  function isoMinus(days) { var d = new Date(); d.setDate(d.getDate() - days); return d.toISOString().slice(0, 10); }
+  function posColor(p) { return p <= 5 ? '#16a34a' : p <= 15 ? '#ca8a04' : '#dc2626'; }
+
+  // ---- AI suggestions ----
+  fetch('/api/analytics/' + slug + '/suggestions')
+    .then(function(r){ return r.json(); })
+    .then(function(data) {
+      var list = document.getElementById('sugg-list');
+      var dateEl = document.getElementById('sugg-date');
+      if (data.date) dateEl.textContent = '(' + data.date + ')';
+      if (!data.bullets || !data.bullets.length) {
+        list.innerHTML = '<li class="text-gray-400 italic">Nessun suggerimento disponibile — clicca "Rigenera" per generarli.</li>';
+        return;
+      }
+      list.innerHTML = data.bullets.map(function(b) {
+        return '<li class="flex gap-2"><span class="text-herba mt-0.5 flex-shrink-0">•</span><span>' + b + '</span></li>';
+      }).join('');
+    })
+    .catch(function(){ });
+
+  // ---- GSC preset / date ----
+  window.gscPreset = function(days) {
+    document.getElementById('gsc-to').value   = isoMinus(1);
+    document.getElementById('gsc-from').value = isoMinus(days);
+    document.querySelectorAll('.gsc-preset').forEach(function(b) {
+      b.className = b.className.replace('bg-white shadow text-herba', 'text-gray-500 hover:text-gray-700');
+    });
+    var btn = document.getElementById('gp-' + days);
+    if (btn) btn.className = btn.className.replace('text-gray-500 hover:text-gray-700', 'bg-white shadow text-herba');
+    gscLoad();
+  };
+
+  window.gscMetric = function(m) {
+    gscMetricActive = m;
+    document.querySelectorAll('.gsc-metric').forEach(function(b) {
+      b.className = b.className.replace('bg-white shadow text-herba', 'text-gray-500 hover:text-gray-700');
+    });
+    var btn = document.getElementById('gm-' + m);
+    if (btn) btn.className = btn.className.replace('text-gray-500 hover:text-gray-700', 'bg-white shadow text-herba');
+    if (gscChart) renderGscChart(gscChart._lastData);
+  };
+
+  window.gscLoad = function() {
+    var from = document.getElementById('gsc-from').value;
+    var to   = document.getElementById('gsc-to').value;
+    if (!from || !to) return;
+    fetch('/api/analytics/' + slug + '/gsc?from_date=' + from + '&to_date=' + to)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        renderGscKpi(data.daily_totals || []);
+        renderGscChart(data.daily_totals || []);
+        renderGscQueries(data.top_queries || []);
+        renderGscPages(data.top_pages || []);
+      });
+  };
+
+  function renderGscKpi(rows) {
+    var el = document.getElementById('gsc-kpi');
+    if (!rows.length) { el.innerHTML = ''; return; }
+    var totClicks = rows.reduce(function(s,r){ return s + (r.clicks||0); }, 0);
+    var totImpr   = rows.reduce(function(s,r){ return s + (r.impressions||0); }, 0);
+    var avgCtr    = totImpr > 0 ? (totClicks / totImpr * 100).toFixed(2) : '—';
+    var avgPos    = rows.length > 0 ? (rows.reduce(function(s,r){ return s + (r.position||0); }, 0) / rows.length).toFixed(1) : '—';
+    el.innerHTML = [
+      ['Click organici', totClicks.toLocaleString('it-IT'), ''],
+      ['Impressioni', totImpr.toLocaleString('it-IT'), ''],
+      ['CTR medio', avgCtr + '%', ''],
+      ['Posizione media', avgPos, 'text-' + (parseFloat(avgPos) <= 10 ? 'green' : parseFloat(avgPos) <= 20 ? 'yellow' : 'red') + '-600'],
+    ].map(function(k) {
+      return '<div class="bg-white rounded-xl border shadow-sm p-4"><p class="text-xs text-gray-500 uppercase tracking-wide mb-1">' + k[0] + '</p><p class="text-2xl font-bold ' + k[2] + '">' + k[1] + '</p></div>';
+    }).join('');
+  }
+
+  function renderGscChart(rows) {
+    var empty = document.getElementById('gsc-chart-empty');
+    var canvas = document.getElementById('gscChart');
+    if (!rows || !rows.length) {
+      empty.classList.remove('hidden'); canvas.classList.add('hidden');
+      if (gscChart) { gscChart.destroy(); gscChart = null; }
+      return;
+    }
+    empty.classList.add('hidden'); canvas.classList.remove('hidden');
+    var metricMap = {
+      clicks:      { label: 'Click',       color: '#00A652', key: 'clicks' },
+      impressions: { label: 'Impressioni', color: '#6366f1', key: 'impressions' },
+      ctr:         { label: 'CTR (%)',     color: '#f59e0b', key: 'ctr' },
+      position:    { label: 'Posizione',   color: '#ef4444', key: 'position' },
+    };
+    var m = metricMap[gscMetricActive];
+    var cfg = {
+      type: 'line',
+      data: {
+        labels: rows.map(function(r){ return r.date; }),
+        datasets: [{
+          label: m.label,
+          data: rows.map(function(r){ return r[m.key]; }),
+          borderColor: m.color,
+          backgroundColor: m.color + '20',
+          borderWidth: 2,
+          pointRadius: rows.length > 60 ? 0 : 3,
+          tension: 0.3,
+          fill: true,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 12, font: { size: 10 } } },
+          y: {
+            beginAtZero: gscMetricActive !== 'position',
+            reverse: gscMetricActive === 'position',
+            ticks: { font: { size: 10 } }
+          }
+        }
+      }
+    };
+    if (gscChart) gscChart.destroy();
+    gscChart = new Chart(canvas, cfg);
+    gscChart._lastData = rows;
+  }
+
+  function tableHtml(headers, rows) {
+    var h = '<table class="w-full text-xs"><thead class="bg-gray-50 text-gray-500 uppercase"><tr>'
+      + headers.map(function(h){ return '<th class="px-3 py-2 ' + (h.right ? 'text-right' : 'text-left') + '">' + h.label + '</th>'; }).join('')
+      + '</tr></thead><tbody class="divide-y divide-gray-100">' + rows + '</tbody></table>';
+    return h;
+  }
+
+  function renderGscQueries(queries) {
+    var el = document.getElementById('gsc-queries-body');
+    if (!queries.length) { el.innerHTML = '<div class="p-6 text-center text-gray-400 text-sm">Nessuna query disponibile.</div>'; return; }
+    var rows = queries.map(function(q) {
+      return '<tr class="hover:bg-gray-50">'
+        + '<td class="px-3 py-2 font-medium max-w-xs"><span class="block truncate" title="' + q.query + '">' + q.query + '</span></td>'
+        + '<td class="px-3 py-2 text-right">' + (q.clicks||0) + '</td>'
+        + '<td class="px-3 py-2 text-right text-gray-500">' + (q.impressions||0) + '</td>'
+        + '<td class="px-3 py-2 text-right text-gray-500">' + (q.ctr||0) + '%</td>'
+        + '<td class="px-3 py-2 text-right font-medium" style="color:' + posColor(q.position) + '">' + (q.position||'—') + '</td>'
+        + '</tr>';
+    }).join('');
+    el.innerHTML = tableHtml(
+      [{label:'Query'},{label:'Click',right:true},{label:'Impr.',right:true},{label:'CTR',right:true},{label:'Pos.',right:true}],
+      rows
+    );
+  }
+
+  function renderGscPages(pages) {
+    var el = document.getElementById('gsc-pages-body');
+    if (!pages.length) { el.innerHTML = '<div class="p-6 text-center text-gray-400 text-sm">Nessuna pagina disponibile.</div>'; return; }
+    var rows = pages.map(function(p) {
+      var short = p.page.replace(/^https?:\/\/[^/]+/, '').slice(0,45) || '/';
+      return '<tr class="hover:bg-gray-50">'
+        + '<td class="px-3 py-2 font-medium max-w-xs"><a href="' + p.page + '" target="_blank" class="text-herba hover:underline block truncate" title="' + p.page + '">' + short + '</a></td>'
+        + '<td class="px-3 py-2 text-right">' + (p.clicks||0) + '</td>'
+        + '<td class="px-3 py-2 text-right text-gray-500">' + (p.impressions||0) + '</td>'
+        + '<td class="px-3 py-2 text-right text-gray-500">' + (p.ctr||0) + '%</td>'
+        + '<td class="px-3 py-2 text-right font-medium" style="color:' + posColor(p.position) + '">' + (p.position||'—') + '</td>'
+        + '</tr>';
+    }).join('');
+    el.innerHTML = tableHtml(
+      [{label:'Pagina'},{label:'Click',right:true},{label:'Impr.',right:true},{label:'CTR',right:true},{label:'Pos.',right:true}],
+      rows
+    );
+  }
+
+  // ---- init ----
+  document.getElementById('gsc-to').value   = isoMinus(1);
+  document.getElementById('gsc-from').value = isoMinus(30);
+  gscLoad();
+})();
+</script>
 {% endblock %}

@@ -43,3 +43,5 @@ google_credentials.json
 *-credentials*.json
 herbamarketer/
 migrate_to_postgres.py
+test_ads_raw.py
+client_secret_*.json

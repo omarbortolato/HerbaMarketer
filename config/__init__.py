@@ -52,6 +52,15 @@ class SiteConfig:
     google_ads_customer_id: Optional[str] = None  # Google Ads customer ID without dashes
 
     @property
+    def gsc_property(self) -> str:
+        """Compute Search Console domain property from site URL (e.g. sc-domain:herbago.it)."""
+        from urllib.parse import urlparse
+        netloc = urlparse(self.url).netloc
+        if netloc.startswith("www."):
+            netloc = netloc[4:]
+        return f"sc-domain:{netloc}"
+
+    @property
     def wp_user(self) -> Optional[str]:
         """Resolve WordPress username from environment variable."""
         if self.wp_user_env:

@@ -43,7 +43,11 @@ from core.database import (
     AdsCampaignSnapshot,
     AdsDailyRow,
     AdsSnapshot,
+    AiSuggestion,
     AnalyticsSnapshot,
+    GscDailyRow,
+    GscTopPage,
+    GscTopQuery,
     Article,
     ContentTopic,
     EmailPair,
@@ -1048,6 +1052,176 @@ async def analytics_sync_site(
 
     background_tasks.add_task(_do_sync)
     return RedirectResponse(url=f"/analytics/{site_slug}?period={period}&syncing=1", status_code=303)
+
+
+@app.post("/analytics/{site_slug}/sync-gsc")
+async def analytics_sync_gsc(
+    site_slug: str,
+    background_tasks: BackgroundTasks,
+    period: int = Query(30),
+):
+    """Backfill 90 days of GSC data for a site (runs in background)."""
+    from core.gsc_sync import sync_site_gsc
+
+    background_tasks.add_task(sync_site_gsc, site_slug, None, 90)
+    return RedirectResponse(
+        url=f"/analytics/{site_slug}?period={period}&syncing=1", status_code=303
+    )
+
+
+@app.get("/api/analytics/{site_slug}/gsc")
+async def analytics_gsc_api(
+    site_slug: str,
+    from_date: str = Query(None),
+    to_date: str = Query(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Return GSC daily rows + top queries + top pages for a site and date range.
+    Response: {daily_totals, top_queries, top_pages, from_date, to_date}
+    """
+    from datetime import date as _date, timedelta
+    from fastapi.responses import JSONResponse
+
+    today = _date.today()
+    try:
+        to_dt = _date.fromisoformat(to_date) if to_date else today - timedelta(days=1)
+        from_dt = _date.fromisoformat(from_date) if from_date else to_dt - timedelta(days=29)
+    except ValueError:
+        to_dt = today - timedelta(days=1)
+        from_dt = to_dt - timedelta(days=29)
+
+    site_db = db.query(Site).filter(Site.slug == site_slug).first()
+    if not site_db:
+        return JSONResponse({"daily_totals": [], "top_queries": [], "top_pages": []})
+
+    daily = (
+        db.query(GscDailyRow)
+        .filter(
+            GscDailyRow.site_id == site_db.id,
+            GscDailyRow.row_date >= from_dt,
+            GscDailyRow.row_date <= to_dt,
+        )
+        .order_by(GscDailyRow.row_date)
+        .all()
+    )
+
+    queries = (
+        db.query(GscTopQuery)
+        .filter(GscTopQuery.site_id == site_db.id)
+        .order_by(GscTopQuery.snapshot_date.desc(), GscTopQuery.clicks.desc())
+        .limit(25)
+        .all()
+    )
+
+    pages = (
+        db.query(GscTopPage)
+        .filter(GscTopPage.site_id == site_db.id)
+        .order_by(GscTopPage.snapshot_date.desc(), GscTopPage.clicks.desc())
+        .limit(25)
+        .all()
+    )
+
+    return JSONResponse({
+        "daily_totals": [
+            {
+                "date": r.row_date.isoformat(),
+                "clicks": r.clicks or 0,
+                "impressions": r.impressions or 0,
+                "ctr": round((r.ctr or 0) * 100, 2),
+                "position": r.position,
+            }
+            for r in daily
+        ],
+        "top_queries": [
+            {
+                "query": q.query,
+                "clicks": q.clicks or 0,
+                "impressions": q.impressions or 0,
+                "ctr": q.ctr,
+                "position": q.position,
+            }
+            for q in queries
+        ],
+        "top_pages": [
+            {
+                "page": p.page,
+                "clicks": p.clicks or 0,
+                "impressions": p.impressions or 0,
+                "ctr": p.ctr,
+                "position": p.position,
+            }
+            for p in pages
+        ],
+        "from_date": from_dt.isoformat(),
+        "to_date": to_dt.isoformat(),
+    })
+
+
+@app.get("/api/analytics/{site_slug}/suggestions")
+async def analytics_suggestions_api(site_slug: str, db: Session = Depends(get_db)):
+    """Return latest AI analytics suggestions for a site."""
+    from fastapi.responses import JSONResponse
+
+    site_db = db.query(Site).filter(Site.slug == site_slug).first()
+    if not site_db:
+        return JSONResponse({"bullets": [], "date": None})
+    suggestion = (
+        db.query(AiSuggestion)
+        .filter(AiSuggestion.site_id == site_db.id, AiSuggestion.type == "analytics")
+        .order_by(AiSuggestion.suggestion_date.desc())
+        .first()
+    )
+    return JSONResponse({
+        "bullets": suggestion.bullets or [] if suggestion else [],
+        "date": suggestion.suggestion_date.isoformat() if suggestion else None,
+    })
+
+
+@app.post("/analytics/{site_slug}/generate-suggestions")
+async def analytics_generate_suggestions(
+    site_slug: str, background_tasks: BackgroundTasks, period: int = Query(30)
+):
+    """Manually trigger AI suggestions generation for analytics."""
+    from agents.analytics_advisor import save_analytics_suggestions
+
+    background_tasks.add_task(save_analytics_suggestions, site_slug)
+    return RedirectResponse(
+        url=f"/analytics/{site_slug}?period={period}&syncing=1", status_code=303
+    )
+
+
+@app.get("/api/ads/{site_slug}/suggestions")
+async def ads_suggestions_api(site_slug: str, db: Session = Depends(get_db)):
+    """Return latest AI Ads suggestions for a site."""
+    from fastapi.responses import JSONResponse
+
+    site_db = db.query(Site).filter(Site.slug == site_slug).first()
+    if not site_db:
+        return JSONResponse({"bullets": [], "date": None})
+    suggestion = (
+        db.query(AiSuggestion)
+        .filter(AiSuggestion.site_id == site_db.id, AiSuggestion.type == "ads")
+        .order_by(AiSuggestion.suggestion_date.desc())
+        .first()
+    )
+    return JSONResponse({
+        "bullets": suggestion.bullets or [] if suggestion else [],
+        "date": suggestion.suggestion_date.isoformat() if suggestion else None,
+    })
+
+
+@app.post("/ads/{site_slug}/generate-suggestions")
+async def ads_generate_suggestions(
+    site_slug: str, background_tasks: BackgroundTasks, period: int = Query(30)
+):
+    """Manually trigger AI suggestions generation for ads."""
+    from agents.ads_advisor import save_ads_suggestions
+
+    background_tasks.add_task(save_ads_suggestions, site_slug)
+    return RedirectResponse(
+        url=f"/ads/{site_slug}?period={period}&syncing=1", status_code=303
+    )
 
 
 @app.get("/api/article/{article_id}/analytics")

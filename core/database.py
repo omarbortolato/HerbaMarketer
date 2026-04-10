@@ -91,6 +91,10 @@ class Site(Base):
     ads_snapshots = relationship("AdsSnapshot", back_populates="site")
     ads_campaign_snapshots = relationship("AdsCampaignSnapshot", back_populates="site")
     ads_daily_rows = relationship("AdsDailyRow", back_populates="site")
+    gsc_daily_rows = relationship("GscDailyRow", back_populates="site")
+    gsc_top_queries = relationship("GscTopQuery", back_populates="site")
+    gsc_top_pages = relationship("GscTopPage", back_populates="site")
+    ai_suggestions = relationship("AiSuggestion", back_populates="site")
 
     def __repr__(self) -> str:
         return f"<Site slug={self.slug!r} lang={self.language!r}>"
@@ -362,6 +366,84 @@ class AdsCampaignSnapshot(Base):
 
     def __repr__(self) -> str:
         return f"<AdsCampaignSnapshot site_id={self.site_id} campaign={self.campaign_name!r} date={self.snapshot_date}>"
+
+
+class GscDailyRow(Base):
+    """Day-granular Google Search Console data per site (account-level)."""
+
+    __tablename__ = "gsc_daily_rows"
+    __table_args__ = (UniqueConstraint("site_id", "row_date", name="uq_gsc_daily"),)
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    site_id: Optional[int] = Column(Integer, ForeignKey("sites.id"), nullable=True)
+    row_date: date = Column(Date, nullable=False, index=True)
+    clicks: Optional[int] = Column(Integer, nullable=True)
+    impressions: Optional[int] = Column(Integer, nullable=True)
+    ctr: Optional[float] = Column(Float, nullable=True)      # 0.0–1.0
+    position: Optional[float] = Column(Float, nullable=True)
+    synced_at: datetime = Column(DateTime, default=func.now(), onupdate=func.now())
+
+    site = relationship("Site", back_populates="gsc_daily_rows")
+
+
+class GscTopQuery(Base):
+    """Top search queries snapshot per site (upserted daily, period=30 days)."""
+
+    __tablename__ = "gsc_top_queries"
+    __table_args__ = (
+        UniqueConstraint("site_id", "query", "snapshot_date", name="uq_gsc_query"),
+    )
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    site_id: Optional[int] = Column(Integer, ForeignKey("sites.id"), nullable=True)
+    snapshot_date: date = Column(Date, nullable=False)
+    period_days: int = Column(Integer, default=30)
+    query: str = Column(String, nullable=False)
+    clicks: Optional[int] = Column(Integer, nullable=True)
+    impressions: Optional[int] = Column(Integer, nullable=True)
+    ctr: Optional[float] = Column(Float, nullable=True)      # as % (0–100)
+    position: Optional[float] = Column(Float, nullable=True)
+
+    site = relationship("Site", back_populates="gsc_top_queries")
+
+
+class GscTopPage(Base):
+    """Top pages snapshot per site (upserted daily, period=30 days)."""
+
+    __tablename__ = "gsc_top_pages"
+    __table_args__ = (
+        UniqueConstraint("site_id", "page", "snapshot_date", name="uq_gsc_page"),
+    )
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    site_id: Optional[int] = Column(Integer, ForeignKey("sites.id"), nullable=True)
+    snapshot_date: date = Column(Date, nullable=False)
+    period_days: int = Column(Integer, default=30)
+    page: str = Column(String, nullable=False)
+    clicks: Optional[int] = Column(Integer, nullable=True)
+    impressions: Optional[int] = Column(Integer, nullable=True)
+    ctr: Optional[float] = Column(Float, nullable=True)
+    position: Optional[float] = Column(Float, nullable=True)
+
+    site = relationship("Site", back_populates="gsc_top_pages")
+
+
+class AiSuggestion(Base):
+    """AI-generated daily suggestions for a site (analytics or ads)."""
+
+    __tablename__ = "ai_suggestions"
+    __table_args__ = (
+        UniqueConstraint("site_id", "type", "suggestion_date", name="uq_ai_suggestion"),
+    )
+
+    id: int = Column(Integer, primary_key=True, index=True)
+    site_id: Optional[int] = Column(Integer, ForeignKey("sites.id"), nullable=True)
+    type: str = Column(String, nullable=False)      # "analytics" | "ads"
+    suggestion_date: date = Column(Date, nullable=False)
+    bullets: Optional[list] = Column(JSON, nullable=True)   # list[str]
+    generated_at: datetime = Column(DateTime, default=func.now())
+
+    site = relationship("Site", back_populates="ai_suggestions")
 
 
 class AdsDailyRow(Base):

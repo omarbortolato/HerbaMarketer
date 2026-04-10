@@ -43,8 +43,9 @@ beautifulsoup4==4.12.3
 # --- Image generation ---
 openai==1.57.2                     # DALL-E 3 (optional — set OPENAI_API_KEY)
 
-# --- Google Analytics 4 ---
+# --- Google Analytics 4 + Search Console ---
 google-analytics-data==0.18.0
+google-api-python-client==2.118.0
 google-auth==2.29.0
 
 # --- Google Ads ---

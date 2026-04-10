@@ -816,6 +816,60 @@ def ads_sync_job() -> None:
         notify_error("Google Ads Sync Job", str(exc))
 
 
+def gsc_sync_job() -> None:
+    """
+    Daily Google Search Console sync job (runs at 06:30).
+    Syncs yesterday's daily row + top-queries/pages snapshot for every site.
+    Notifies Telegram only on error.
+    """
+    from core.gsc_sync import sync_all_sites_gsc
+
+    log.info("gsc_sync_job_started", at=datetime.utcnow().isoformat())
+    try:
+        results = sync_all_sites_gsc(backfill_days=1)
+        errors = [
+            f"{slug}: {r['error']}"
+            for slug, r in results.items()
+            if not r.get("success")
+        ]
+        if errors:
+            notify_error("GSC Sync", "Errori:\n" + "\n".join(f"• {e}" for e in errors))
+        log.info("gsc_sync_job_done", errors=len(errors))
+    except Exception as exc:
+        log.error("gsc_sync_job_failed", error=str(exc))
+        notify_error("GSC Sync Job", str(exc))
+
+
+def suggestions_job() -> None:
+    """
+    Daily AI suggestions job (runs at 08:00, after GA4/GSC/Ads data is fresh).
+    Generates analytics + ads suggestions for every active site with data.
+    """
+    from agents.analytics_advisor import save_analytics_suggestions
+    from agents.ads_advisor import save_ads_suggestions
+    from config import get_all_active_sites
+
+    log.info("suggestions_job_started", at=datetime.utcnow().isoformat())
+    errors = []
+    try:
+        for site_cfg in get_all_active_sites():
+            try:
+                save_analytics_suggestions(site_cfg.slug)
+            except Exception as exc:
+                errors.append(f"{site_cfg.slug} analytics: {exc}")
+            try:
+                if site_cfg.google_ads_customer_id:
+                    save_ads_suggestions(site_cfg.slug)
+            except Exception as exc:
+                errors.append(f"{site_cfg.slug} ads: {exc}")
+        if errors:
+            notify_error("Suggestions Job", "Errori:\n" + "\n".join(f"• {e}" for e in errors))
+        log.info("suggestions_job_done", errors=len(errors))
+    except Exception as exc:
+        log.error("suggestions_job_failed", error=str(exc))
+        notify_error("Suggestions Job", str(exc))
+
+
 def ga4_sync_job() -> None:
     """
     Daily GA4 analytics sync job (runs at 06:00 via CronTrigger).
@@ -932,10 +986,28 @@ def start_scheduler() -> BackgroundScheduler:
     )
 
     scheduler.add_job(
+        func=gsc_sync_job,
+        trigger=CronTrigger(hour=6, minute=30),
+        id="gsc_sync_job",
+        name="Google Search Console daily sync",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    scheduler.add_job(
         func=ads_sync_job,
         trigger=CronTrigger(hour=7, minute=0),
         id="ads_sync_job",
         name="Google Ads daily sync",
+        replace_existing=True,
+        misfire_grace_time=3600,
+    )
+
+    scheduler.add_job(
+        func=suggestions_job,
+        trigger=CronTrigger(hour=8, minute=0),
+        id="suggestions_job",
+        name="AI analytics+ads suggestions daily",
         replace_existing=True,
         misfire_grace_time=3600,
     )

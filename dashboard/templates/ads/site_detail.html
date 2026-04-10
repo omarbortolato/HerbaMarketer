@@ -33,6 +33,23 @@
 </div>
 {% endif %}
 
+<!-- AI Suggestions box -->
+<div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-indigo-100 rounded-xl p-5 mb-6">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-sm font-semibold text-indigo-800 flex items-center gap-2">
+      ✨ Suggerimenti AI — Google Ads
+    </h2>
+    <button onclick="regenSuggestions()"
+            class="text-xs px-3 py-1.5 border border-indigo-300 text-indigo-600 rounded-lg hover:bg-indigo-100 transition">
+      ↺ Rigenera
+    </button>
+  </div>
+  <div id="ai-suggestions-wrap">
+    <div class="text-sm text-indigo-400 italic">Caricamento suggerimenti…</div>
+  </div>
+  <p id="ai-suggestions-date" class="text-xs text-indigo-300 mt-2"></p>
+</div>
+
 <!-- Account KPI cards -->
 {% if snap %}
 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -384,6 +401,48 @@
   document.getElementById('to-date').value   = isoMinus(1);
   document.getElementById('from-date').value = isoMinus(30);
   loadData();
+  loadSuggestions();
 })();
+
+// ---- AI suggestions ----
+function loadSuggestions() {
+  fetch('/api/ads/{{ site.slug }}/suggestions')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var wrap = document.getElementById('ai-suggestions-wrap');
+      var dateEl = document.getElementById('ai-suggestions-date');
+      if (!data.bullets || data.bullets.length === 0) {
+        wrap.innerHTML = '<p class="text-sm text-indigo-400 italic">Nessun suggerimento disponibile — clicca "Rigenera".</p>';
+        return;
+      }
+      wrap.innerHTML = '<ul class="space-y-2">'
+        + data.bullets.map(function (b) {
+            return '<li class="flex items-start gap-2 text-sm text-indigo-900">'
+              + '<span class="mt-0.5 text-indigo-400 shrink-0">•</span>'
+              + '<span>' + b + '</span>'
+              + '</li>';
+          }).join('')
+        + '</ul>';
+      if (data.date) {
+        dateEl.textContent = 'Generati il ' + data.date;
+      }
+    })
+    .catch(function () {
+      document.getElementById('ai-suggestions-wrap').innerHTML =
+        '<p class="text-sm text-red-400 italic">Errore nel caricamento dei suggerimenti.</p>';
+    });
+}
+
+function regenSuggestions() {
+  var wrap = document.getElementById('ai-suggestions-wrap');
+  wrap.innerHTML = '<p class="text-sm text-indigo-400 italic">Rigenerazione in corso…</p>';
+  fetch('/ads/{{ site.slug }}/generate-suggestions', { method: 'POST' })
+    .then(function () {
+      setTimeout(loadSuggestions, 3000);
+    })
+    .catch(function () {
+      wrap.innerHTML = '<p class="text-sm text-red-400 italic">Errore nella rigenerazione.</p>';
+    });
+}
 </script>
 {% endblock %}
