@@ -2,7 +2,15 @@
 {% block title %}Overview — HerbaMarketer{% endblock %}
 
 {% block content %}
-<h1 class="text-2xl font-bold mb-6">Overview</h1>
+<div class="flex items-center justify-between mb-6">
+  <h1 class="text-2xl font-bold">Overview</h1>
+  <a href="/strategy"
+     class="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-xl transition"
+     style="background:#00e5a0; color:#0a0a0a; box-shadow: 0 2px 8px rgba(0,229,160,0.35);"
+     onmouseover="this.style.background='#00c98d'" onmouseout="this.style.background='#00e5a0'">
+    ⚡ Strategy Dashboard
+  </a>
+</div>
 
 <!-- Flash message after manual trigger -->
 {% if triggered %}

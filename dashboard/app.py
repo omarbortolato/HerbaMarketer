@@ -138,6 +138,7 @@ app.add_middleware(SessionMiddleware, secret_key=_SESSION_SECRET)
 
 _STATIC_DIR = Path(__file__).parent / "static"
 _TEMPLATES_DIR = Path(__file__).parent / "templates"
+_STRATEGY_DIR = Path(__file__).parent / "strategy"
 
 _STATIC_DIR.mkdir(exist_ok=True)
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
@@ -268,6 +269,13 @@ async def logout(request: Request):
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
+
+@app.get("/strategy", response_class=HTMLResponse)
+async def strategy_dashboard(request: Request):
+    """Serve the static Strategy Dashboard HTML file."""
+    html_path = _STRATEGY_DIR / "herbamarketer_dashboard.html"
+    return HTMLResponse(content=html_path.read_text(encoding="utf-8"))
 
 
 @app.get("/", response_class=HTMLResponse)

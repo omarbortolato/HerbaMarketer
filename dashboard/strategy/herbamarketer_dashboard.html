@@ -1,0 +1,1997 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HerbaMarketer — Strategic Command Center</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c0f;
+  --surface: #111418;
+  --surface2: #181d24;
+  --border: #1e2530;
+  --border2: #2a3340;
+  --accent: #00e5a0;
+  --accent2: #0070ff;
+  --accent3: #ff5c35;
+  --warn: #ffb800;
+  --text: #e8edf2;
+  --text2: #8a96a3;
+  --text3: #4a5568;
+  --done: #00e5a0;
+  --progress: #0070ff;
+  --todo: #2a3340;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* NOISE TEXTURE */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+/* HEADER */
+header {
+  padding: 32px 0 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.logo-area h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+
+.logo-area h1 span {
+  color: var(--accent);
+}
+
+.logo-area p {
+  color: var(--text2);
+  font-size: 12px;
+  margin-top: 4px;
+  letter-spacing: 0.05em;
+}
+
+.header-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.badge {
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.badge-green { background: rgba(0,229,160,0.12); color: var(--accent); border: 1px solid rgba(0,229,160,0.2); }
+.badge-blue { background: rgba(0,112,255,0.12); color: var(--accent2); border: 1px solid rgba(0,112,255,0.2); }
+.badge-orange { background: rgba(255,92,53,0.12); color: var(--accent3); border: 1px solid rgba(255,92,53,0.2); }
+.badge-yellow { background: rgba(255,184,0,0.12); color: var(--warn); border: 1px solid rgba(255,184,0,0.2); }
+
+/* NAV TABS */
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 32px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  padding: 12px 20px;
+  cursor: pointer;
+  color: var(--text3);
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  white-space: nowrap;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.tab:hover { color: var(--text2); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* SECTIONS */
+.section { display: none; animation: fadeIn 0.3s ease; }
+.section.active { display: block; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* GRID LAYOUTS */
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+.grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+@media (max-width: 900px) {
+  .grid-4, .grid-3, .grid-2, .grid-2-1 { grid-template-columns: 1fr; }
+}
+
+/* CARDS */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  transition: border-color 0.2s;
+}
+
+.card:hover { border-color: var(--border2); }
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.card-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.card-value {
+  font-family: 'Syne', sans-serif;
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1;
+  margin: 8px 0 4px;
+}
+
+.card-sub {
+  color: var(--text3);
+  font-size: 11px;
+}
+
+.card-trend {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 3px;
+}
+
+.trend-up { background: rgba(0,229,160,0.1); color: var(--accent); }
+.trend-down { background: rgba(255,92,53,0.1); color: var(--accent3); }
+.trend-neutral { background: rgba(255,184,0,0.1); color: var(--warn); }
+
+/* STATUS INDICATORS */
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+.dot-green { background: var(--accent); box-shadow: 0 0 6px rgba(0,229,160,0.5); }
+.dot-blue { background: var(--accent2); }
+.dot-yellow { background: var(--warn); }
+.dot-gray { background: var(--text3); }
+.dot-red { background: var(--accent3); }
+
+/* SECTION HEADERS */
+.section-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ASSET TABLE */
+.asset-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.asset-table th {
+  text-align: left;
+  color: var(--text3);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.asset-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  font-size: 12px;
+}
+
+.asset-table tr:last-child td { border-bottom: none; }
+.asset-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+/* PHASE ROADMAP */
+.phase-row {
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  gap: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+  cursor: pointer;
+}
+
+.phase-row:hover { border-color: var(--border2); }
+.phase-row.expanded { border-color: var(--accent2); }
+
+.phase-label {
+  padding: 16px;
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+}
+
+.phase-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text3);
+  line-height: 1;
+}
+
+.phase-name {
+  font-size: 10px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 4px;
+}
+
+.phase-body { padding: 16px; }
+
+.phase-title {
+  font-family: 'Syne', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.phase-weeks {
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+
+.phase-tasks {
+  display: none;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.phase-row.expanded .phase-tasks { display: block; }
+
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text2);
+}
+
+.task-check {
+  width: 16px; height: 16px;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.task-check.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+}
+
+.phase-cost {
+  padding: 16px;
+  background: var(--surface2);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-width: 90px;
+  text-align: center;
+}
+
+.cost-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.cost-label { font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+/* PROGRESS BAR */
+.progress-bar {
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+.fill-green { background: var(--accent); }
+.fill-blue { background: var(--accent2); }
+.fill-orange { background: var(--accent3); }
+.fill-yellow { background: var(--warn); }
+
+/* AGENT CARDS */
+.agent-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.agent-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.agent-card.ceo::before { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+.agent-card.seo::before { background: var(--accent2); }
+.agent-card.funnel::before { background: var(--accent); }
+.agent-card.social::before { background: #b44ef7; }
+.agent-card.nurture::before { background: var(--warn); }
+.agent-card.analytics::before { background: var(--accent3); }
+
+.agent-icon {
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+
+.agent-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.agent-desc {
+  font-size: 11px;
+  color: var(--text2);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.agent-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tool-tag {
+  padding: 3px 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  font-size: 10px;
+  color: var(--text3);
+  letter-spacing: 0.05em;
+}
+
+.agent-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+/* FUNNEL VIZ */
+.funnel-stage {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.funnel-stage:hover { border-color: var(--border2); }
+
+.funnel-num {
+  font-family: 'Syne', sans-serif;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text3);
+  min-width: 40px;
+}
+
+.funnel-content { flex: 1; }
+
+.funnel-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 3px;
+}
+
+.funnel-channels {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.funnel-bar-wrap {
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+
+.funnel-conversion {
+  font-size: 11px;
+  color: var(--text2);
+}
+
+/* STACK TABLE */
+.stack-row {
+  display: grid;
+  grid-template-columns: 180px 1fr 140px 80px;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0;
+  align-items: center;
+  font-size: 12px;
+}
+
+.stack-row:first-child {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  padding-bottom: 8px;
+}
+
+.stack-row:last-child { border-bottom: none; }
+
+.stack-tool { font-weight: 500; color: var(--text); }
+.stack-purpose { color: var(--text2); }
+.stack-cost { color: var(--accent); font-family: 'Syne', sans-serif; font-weight: 700; }
+.stack-phase { }
+
+/* SOCIAL STRATEGY */
+.social-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.social-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.social-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.ig-icon { background: linear-gradient(135deg, #e91e8c, #f5a623); }
+.tt-icon { background: #000; border: 1px solid #333; }
+.li-icon { background: #0077b5; }
+
+.social-name {
+  font-family: 'Syne', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.social-target { font-size: 11px; color: var(--text3); }
+
+.social-body { padding: 16px 20px; }
+
+.pillar-item {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text2);
+}
+
+.pillar-dot {
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.social-freq {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.social-freq strong { color: var(--text); }
+
+/* RISK TABLE */
+.risk-row {
+  display: grid;
+  grid-template-columns: 1fr 90px 90px 1fr;
+  gap: 12px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  align-items: start;
+}
+
+.risk-row.header {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  padding-bottom: 8px;
+}
+
+.risk-row:last-child { border-bottom: none; }
+
+.risk-pill {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  text-align: center;
+}
+
+.risk-high { background: rgba(255,92,53,0.15); color: var(--accent3); }
+.risk-med { background: rgba(255,184,0,0.15); color: var(--warn); }
+.risk-low { background: rgba(0,229,160,0.15); color: var(--accent); }
+
+/* ARCHITECTURE DIAGRAM */
+.arch-diagram {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px;
+  font-family: 'DM Mono', monospace;
+}
+
+.arch-layer {
+  margin-bottom: 20px;
+}
+
+.arch-layer-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  margin-bottom: 10px;
+}
+
+.arch-nodes {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.arch-node {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.node-omar { background: rgba(0,229,160,0.08); border-color: rgba(0,229,160,0.3); color: var(--accent); }
+.node-ceo { background: rgba(0,112,255,0.08); border-color: rgba(0,112,255,0.3); color: var(--accent2); }
+.node-agent { background: rgba(255,255,255,0.03); border-color: var(--border2); color: var(--text2); }
+.node-infra { background: rgba(255,184,0,0.05); border-color: rgba(255,184,0,0.2); color: var(--warn); }
+
+.arch-arrow {
+  text-align: center;
+  color: var(--text3);
+  font-size: 16px;
+  margin: -6px 0;
+  letter-spacing: 20px;
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* TOOLTIP */
+.tooltip-wrap { position: relative; display: inline-flex; align-items: center; }
+.tooltip-wrap:hover .tooltip { display: block; }
+.tooltip {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text2);
+  white-space: nowrap;
+  z-index: 100;
+}
+
+/* KPI CURRENT */
+.kpi-current {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.kpi-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.kpi-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+
+.kpi-val {
+  font-family: 'Syne', sans-serif;
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.kpi-sub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 4px;
+}
+
+/* OVERALL PROGRESS */
+.overall-progress {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.overall-title {
+  font-family: 'Syne', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 16px;
+}
+
+.phase-progress-item {
+  display: grid;
+  grid-template-columns: 100px 1fr 60px;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.pp-label { font-size: 11px; color: var(--text2); }
+.pp-pct { font-size: 11px; color: var(--text3); text-align: right; }
+
+/* ANIMATED PULSE */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.5s ease infinite;
+}
+
+/* FOOTER */
+footer {
+  margin-top: 48px;
+  padding: 24px 0;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+footer p { font-size: 11px; color: var(--text3); }
+
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <header>
+    <div class="logo-area">
+      <h1>Herba<span>Marketer</span> <span style="color:var(--text3);font-weight:400;font-size:18px">///</span> Recruiting Engine</h1>
+      <p>Strategic Command Center · hl-distributor.com · v1.0 · April 2026</p>
+    </div>
+    <div class="header-meta">
+      <span class="badge badge-green">Sistema Attivo</span>
+      <span class="badge badge-blue">Fase 0 — Fondamenta</span>
+      <span class="badge badge-yellow">12% Completato</span>
+      <span class="live-indicator"><span class="live-dot"></span>Dashboard Live</span>
+    </div>
+  </header>
+
+  <!-- TABS -->
+  <nav class="tabs">
+    <div class="tab active" onclick="showTab('overview')">📊 Overview</div>
+    <div class="tab" onclick="showTab('assets')">🗂 Asset & Stato</div>
+    <div class="tab" onclick="showTab('roadmap')">🗺 Roadmap</div>
+    <div class="tab" onclick="showTab('agents')">🤖 Agenti</div>
+    <div class="tab" onclick="showTab('funnel')">🎯 Funnel</div>
+    <div class="tab" onclick="showTab('social')">📱 Social</div>
+    <div class="tab" onclick="showTab('stack')">⚙️ Stack & Costi</div>
+    <div class="tab" onclick="showTab('arch')">🏗 Architettura</div>
+    <div class="tab" onclick="showTab('risks')">⚠️ Rischi</div>
+  </nav>
+
+  <!-- OVERVIEW -->
+  <section id="overview" class="section active">
+    <div class="section-title">Stato del Sistema</div>
+
+    <div class="kpi-current">
+      <div class="kpi-item">
+        <div class="kpi-label">Siti Live</div>
+        <div class="kpi-val" style="color:var(--accent)">6</div>
+        <div class="kpi-sub">hl-distributor + 5 ecommerce</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">Pagine SEO Create</div>
+        <div class="kpi-val" style="color:var(--accent2)">47+</div>
+        <div class="kpi-sub">Multi-lingua, multi-paese</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">Automazioni N8N</div>
+        <div class="kpi-val" style="color:var(--warn)">8</div>
+        <div class="kpi-sub">SEO + Email + Lead</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">Fase Attuale</div>
+        <div class="kpi-val" style="color:var(--accent3)">0</div>
+        <div class="kpi-sub">Fondamenta — in avvio</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">Costo Stack Attuale</div>
+        <div class="kpi-val">€0</div>
+        <div class="kpi-sub">Infrastruttura esistente</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">Target Distributor</div>
+        <div class="kpi-val">500</div>
+        <div class="kpi-sub">Entro 12 mesi</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">Paesi Target SEO</div>
+        <div class="kpi-val">15+</div>
+        <div class="kpi-sub">Organico + Ads</div>
+      </div>
+      <div class="kpi-item">
+        <div class="kpi-label">CAC Target</div>
+        <div class="kpi-val">&lt;€8</div>
+        <div class="kpi-sub">Lead qualificato</div>
+      </div>
+    </div>
+
+    <div class="overall-progress">
+      <div class="overall-title">Avanzamento Roadmap Complessivo</div>
+      <div class="phase-progress-item">
+        <span class="pp-label">Fase 0 — Base</span>
+        <div class="progress-bar"><div class="progress-fill fill-green" style="width:15%"></div></div>
+        <span class="pp-pct">15%</span>
+      </div>
+      <div class="phase-progress-item">
+        <span class="pp-label">Fase 1 — Funnel</span>
+        <div class="progress-bar"><div class="progress-fill fill-blue" style="width:0%"></div></div>
+        <span class="pp-pct">0%</span>
+      </div>
+      <div class="phase-progress-item">
+        <span class="pp-label">Fase 2 — SEO+Social</span>
+        <div class="progress-bar"><div class="progress-fill fill-yellow" style="width:0%"></div></div>
+        <span class="pp-pct">0%</span>
+      </div>
+      <div class="phase-progress-item">
+        <span class="pp-label">Fase 3 — WhatsApp+Portale</span>
+        <div class="progress-bar"><div class="progress-fill fill-orange" style="width:0%"></div></div>
+        <span class="pp-pct">0%</span>
+      </div>
+      <div class="phase-progress-item">
+        <span class="pp-label">Fase 4 — Scale</span>
+        <div class="progress-bar"><div class="progress-fill fill-green" style="width:0%"></div></div>
+        <span class="pp-pct">0%</span>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Prossime Priorità (Fase 0)</span>
+          <span class="badge badge-orange">Urgente</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div class="task-item">
+            <div class="task-check" onclick="toggleTask(this)"></div>
+            <span>Setup Supabase — schema DB base (leads, distributors, content)</span>
+          </div>
+          <div class="task-item">
+            <div class="task-check" onclick="toggleTask(this)"></div>
+            <span>CEO Agent v0 — connessione Telegram + report giornaliero</span>
+          </div>
+          <div class="task-item">
+            <div class="task-check" onclick="toggleTask(this)"></div>
+            <span>Mautic — mappatura sequenze esistenti e gap analysis</span>
+          </div>
+          <div class="task-item">
+            <div class="task-check" onclick="toggleTask(this)"></div>
+            <span>Google Sheets _Config — aggiornamento con nuovi campi agenti</span>
+          </div>
+          <div class="task-item">
+            <div class="task-check" onclick="toggleTask(this)"></div>
+            <span>Knowledge base v1 — PDF prodotti + FAQ recruiting caricati</span>
+          </div>
+          <div class="task-item">
+            <div class="task-check" onclick="toggleTask(this)"></div>
+            <span>CLAUDE.md aggiornato con architettura recruiting engine</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Decisioni Chiave Aperte</span>
+          <span class="badge badge-yellow">Da decidere</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div style="border-left:2px solid var(--warn);padding-left:12px;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:3px;">WhatsApp API Provider</div>
+            <div style="font-size:11px;color:var(--text2);">360dialog (€45/m) vs Twilio (pay-per-use). Volume basso → 360dialog.</div>
+          </div>
+          <div style="border-left:2px solid var(--accent2);padding-left:12px;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:3px;">Portale Distributor</div>
+            <div style="font-size:11px;color:var(--text2);">WordPress Memberships vs React SPA. Più veloce: WP con MemberPress.</div>
+          </div>
+          <div style="border-left:2px solid var(--accent3);padding-left:12px;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:3px;">Video Onboarding</div>
+            <div style="font-size:11px;color:var(--text2);">HeyGen (€29) vs registrazione manuale. Fase 3, non critico ora.</div>
+          </div>
+          <div style="border-left:2px solid var(--accent);padding-left:12px;">
+            <div style="font-size:12px;font-weight:600;margin-bottom:3px;">Dashboard Frontend</div>
+            <div style="font-size:11px;color:var(--text2);">Fase 0: Google Sheets. Fase 2: React + FastAPI. Non costruire ora.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ASSETS -->
+  <section id="assets" class="section">
+    <div class="section-title">Asset Esistenti e Stato</div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table class="asset-table">
+        <tr>
+          <th>Asset</th>
+          <th>Stato</th>
+          <th>Categoria</th>
+          <th>Note</th>
+          <th>Azione Richiesta</th>
+        </tr>
+        <tr>
+          <td><strong>hl-distributor.com</strong></td>
+          <td><span class="status-dot dot-green"></span>Live</td>
+          <td><span class="badge badge-blue">Core</span></td>
+          <td>Pagine per stati/città, multi-lingua</td>
+          <td style="color:var(--accent2)">Nuove micro-landing per angolo</td>
+        </tr>
+        <tr>
+          <td><strong>herbashop.it</strong></td>
+          <td><span class="status-dot dot-green"></span>Live</td>
+          <td><span class="badge badge-green">Ecommerce</span></td>
+          <td>WooCommerce + Brevo + SEO HL/Skin</td>
+          <td style="color:var(--text3)">Stabile</td>
+        </tr>
+        <tr>
+          <td><strong>herbago.it/fr/de/net/co.uk</strong></td>
+          <td><span class="status-dot dot-green"></span>Live</td>
+          <td><span class="badge badge-green">Ecommerce</span></td>
+          <td>Multi-mercato</td>
+          <td style="color:var(--text3)">Stabile</td>
+        </tr>
+        <tr>
+          <td><strong>hlifeus.com</strong></td>
+          <td><span class="status-dot dot-yellow"></span>In sviluppo</td>
+          <td><span class="badge badge-blue">SEO</span></td>
+          <td>SEO programmatica in corso</td>
+          <td style="color:var(--warn)">Completare pipeline SEO</td>
+        </tr>
+        <tr>
+          <td><strong>SEO Agent N8N</strong></td>
+          <td><span class="status-dot dot-green"></span>Funziona</td>
+          <td><span class="badge badge-blue">Automation</span></td>
+          <td>Google Sheets + WP REST API + GPT</td>
+          <td style="color:var(--accent2)">Aggiungere Claude + DataForSEO keyword</td>
+        </tr>
+        <tr>
+          <td><strong>Mautic v6.0.5</strong></td>
+          <td><span class="status-dot dot-yellow"></span>Parziale</td>
+          <td><span class="badge badge-blue">Email</span></td>
+          <td>Form attiva, sequenze da costruire</td>
+          <td style="color:var(--accent3)">Creare sequenza 21gg recruiting</td>
+        </tr>
+        <tr>
+          <td><strong>N8N</strong></td>
+          <td><span class="status-dot dot-green"></span>Attivo</td>
+          <td><span class="badge badge-blue">Automation</span></td>
+          <td>8 workflow attivi</td>
+          <td style="color:var(--accent2)">Estendere per recruiting funnel</td>
+        </tr>
+        <tr>
+          <td><strong>Google Sheets Master</strong></td>
+          <td><span class="status-dot dot-green"></span>Attivo</td>
+          <td><span class="badge badge-blue">Data</span></td>
+          <td>ID: 14-Z2WUT...</td>
+          <td style="color:var(--accent2)">Aggiungere tab agenti recruiting</td>
+        </tr>
+        <tr>
+          <td><strong>HerbaMarketer Python</strong></td>
+          <td><span class="status-dot dot-yellow"></span>In sviluppo</td>
+          <td><span class="badge badge-orange">Platform</span></td>
+          <td>Claude API + FastAPI + APScheduler</td>
+          <td style="color:var(--accent3)">Fase 1-5: priorità CEO Agent</td>
+        </tr>
+        <tr>
+          <td><strong>Telegram Bot</strong></td>
+          <td><span class="status-dot dot-green"></span>Configurato</td>
+          <td><span class="badge badge-blue">Communication</span></td>
+          <td>t.me/herbamarketer_bot</td>
+          <td style="color:var(--accent2)">Collegare CEO Agent per report</td>
+        </tr>
+        <tr>
+          <td><strong>VAPI (AI Calling)</strong></td>
+          <td><span class="status-dot dot-green"></span>Attivo</td>
+          <td><span class="badge badge-orange">Sales</span></td>
+          <td>HL SKIN Veneto partner</td>
+          <td style="color:var(--text3)">Valutare per recruiting call</td>
+        </tr>
+        <tr>
+          <td><strong>Ideogram</strong></td>
+          <td><span class="status-dot dot-green"></span>Attivo</td>
+          <td><span class="badge badge-blue">Creative</span></td>
+          <td>Generazione immagini</td>
+          <td style="color:var(--accent2)">Template social per ogni canale</td>
+        </tr>
+        <tr>
+          <td><strong>DataForSEO</strong></td>
+          <td><span class="status-dot dot-gray"></span>Non attivo</td>
+          <td><span class="badge badge-yellow">SEO</span></td>
+          <td>In stack HerbaMarketer</td>
+          <td style="color:var(--accent3)">Attivare in Fase 2 SEO Agent</td>
+        </tr>
+        <tr>
+          <td><strong>WhatsApp Business API</strong></td>
+          <td><span class="status-dot dot-gray"></span>Non attivo</td>
+          <td><span class="badge badge-yellow">Nurture</span></td>
+          <td>360dialog pianificato</td>
+          <td style="color:var(--warn)">Attivare in Fase 3</td>
+        </tr>
+        <tr>
+          <td><strong>Portale Distributor</strong></td>
+          <td><span class="status-dot dot-gray"></span>Non esiste</td>
+          <td><span class="badge badge-orange">Critical</span></td>
+          <td>Da costruire ex-novo</td>
+          <td style="color:var(--accent3)">Priorità Fase 3</td>
+        </tr>
+        <tr>
+          <td><strong>Social Accounts</strong></td>
+          <td><span class="status-dot dot-gray"></span>Non sistematici</td>
+          <td><span class="badge badge-yellow">Marketing</span></td>
+          <td>Presenza non strutturata</td>
+          <td style="color:var(--accent3)">Strategia Fase 2</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ROADMAP -->
+  <section id="roadmap" class="section">
+    <div class="section-title">Roadmap Operativa — Logica Bootstrapper</div>
+    <p style="color:var(--text2);margin-bottom:24px;font-size:12px;">Clicca su ogni fase per vedere i task dettagliati. Spunta i task completati per tracciare l'avanzamento.</p>
+
+    <div class="phase-row" onclick="togglePhase(this)">
+      <div class="phase-label">
+        <div class="phase-num" style="color:var(--accent)">0</div>
+        <div class="phase-name">Fondamenta</div>
+      </div>
+      <div class="phase-body">
+        <div class="phase-title">Setup Base + CEO Agent</div>
+        <div class="phase-weeks">Settimane 1-2 · Costo: €0</div>
+        <div style="font-size:11px;color:var(--text2)">Supabase, schema DB, CEO Agent v0 → Telegram, mappatura Mautic, Knowledge base v1</div>
+        <div class="phase-tasks">
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Setup Supabase — schema DB (leads, distributors, content_items, seo_pages, analytics)</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>CEO Agent v0: lettura DB + report giornaliero via Telegram a Omar</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Mautic: inventario sequenze esistenti + gap analysis completa</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Google Sheets _Config: aggiornamento con nuovi parametri agenti recruiting</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Knowledge base v1: PDF prodotti + FAQ + regole compliance caricate</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>CLAUDE.md: aggiornamento spec architettura recruiting engine</span></div>
+        </div>
+      </div>
+      <div class="phase-cost">
+        <div class="cost-num">€0</div>
+        <div class="cost-label">/ mese</div>
+      </div>
+    </div>
+
+    <div class="phase-row" onclick="togglePhase(this)">
+      <div class="phase-label">
+        <div class="phase-num" style="color:var(--accent2)">1</div>
+        <div class="phase-name">Funnel Core</div>
+      </div>
+      <div class="phase-body">
+        <div class="phase-title">Landing + Sequenze Email + Chatbot v1</div>
+        <div class="phase-weeks">Settimane 3-6 · Costo: €50-100/mese</div>
+        <div style="font-size:11px;color:var(--text2)">Funnel completo funzionante. Primo lead nurturato automaticamente dalla form all'email sequence.</div>
+        <div class="phase-tasks">
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Landing madre hl-distributor.com: redesign o nuova sezione con 6 angoli business</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>6 micro-landing: Online, Offline, Ecommerce Manager, HL/Skin, Sport, Business Pro</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Sequenza email Mautic 21 giorni: testi + automazione + tag per segmento</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Chatbot v1 embedded sulla landing: Claude Haiku + FAQ base (no knowledge base completa)</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Flusso completo testato: Form → Mautic → Email D0-D3-D7</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Dashboard v1 su Google Sheets: KPI lead, open rate, conversioni</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>ROI Calculator embedded nella landing (JS semplice)</span></div>
+        </div>
+      </div>
+      <div class="phase-cost">
+        <div class="cost-num">€75</div>
+        <div class="cost-label">/ mese</div>
+      </div>
+    </div>
+
+    <div class="phase-row" onclick="togglePhase(this)">
+      <div class="phase-label">
+        <div class="phase-num" style="color:#b44ef7">2</div>
+        <div class="phase-name">SEO+Social</div>
+      </div>
+      <div class="phase-body">
+        <div class="phase-title">SEO Agent Autonomo + Presenza Social Strutturata</div>
+        <div class="phase-weeks">Settimane 7-10 · Costo: €150/mese</div>
+        <div style="font-size:11px;color:var(--text2)">10+ nuove pagine SEO pubblicate. 30+ post social programmati. Analytics agent attivo.</div>
+        <div class="phase-tasks">
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>SEO Agent v1: DataForSEO keyword gap → generazione pagina WP → preview Telegram → Omar approva → pubblica</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Template SEO per angolo mercato (sport, salute, beauty, entrepreneur per paese)</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Social Agent v1: piano editoriale settimanale Instagram + LinkedIn</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Template contenuti per canale: tono, formato, hashtag, CTA</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Buffer o Make.com per scheduling automatico</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Analytics Agent v1: report settimanale automatico Telegram</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>DataForSEO attivato — integrazione con N8N esistente</span></div>
+        </div>
+      </div>
+      <div class="phase-cost">
+        <div class="cost-num">€150</div>
+        <div class="cost-label">/ mese</div>
+      </div>
+    </div>
+
+    <div class="phase-row" onclick="togglePhase(this)">
+      <div class="phase-label">
+        <div class="phase-num" style="color:var(--warn)">3</div>
+        <div class="phase-name">WhatsApp+Portale</div>
+      </div>
+      <div class="phase-body">
+        <div class="phase-title">Nurturing Multi-canale + Portale Distributor v1</div>
+        <div class="phase-weeks">Settimane 11-16 · Costo: €200-250/mese</div>
+        <div style="font-size:11px;color:var(--text2)">Primo distributor onboardato interamente in automatico. Portale attivo con knowledge base.</div>
+        <div class="phase-tasks">
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>WhatsApp Business API (360dialog): attivazione + integrazione Mautic</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Sequenza nurture WhatsApp: welcome + video + link risorse (parallela all'email)</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Portale distributor v1: WP Members o React SPA con login, docs, chatbot</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Knowledge base v2: tutti i PDF + embeddings per chatbot semantico</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Chatbot v2: accesso KB completa, risponde su prodotti, processi, normative</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Video onboarding v1: 3-5 video brevi (HeyGen o registrazione) su portale</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Integrazione Calendly → Mautic → trigger onboarding post-call</span></div>
+        </div>
+      </div>
+      <div class="phase-cost">
+        <div class="cost-num">€225</div>
+        <div class="cost-label">/ mese</div>
+      </div>
+    </div>
+
+    <div class="phase-row" onclick="togglePhase(this)">
+      <div class="phase-label">
+        <div class="phase-num" style="color:var(--accent3)">4</div>
+        <div class="phase-name">Scale</div>
+      </div>
+      <div class="phase-body">
+        <div class="phase-title">TikTok + Ads Agent + Dashboard Completa</div>
+        <div class="phase-weeks">Settimane 17-24 · Costo: €300-400/mese</div>
+        <div style="font-size:11px;color:var(--text2)">Sistema 80% autonomo. Omar supervisiona 1 ora al giorno. CEO Agent propone strategie settimanali.</div>
+        <div class="phase-tasks">
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>TikTok Agent: script video automatizzati + trend monitoring + scheduling</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Google Ads Agent: ottimizzazione bid + nuove varianti + A/B test automatizzato</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Dashboard React completa: tutte le metriche, chat con CEO Agent</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>CEO Agent v2: propone strategie settimanali con dati, non solo report</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>A/B test automatizzato su landing e sequenze email (Mautic segments)</span></div>
+          <div class="task-item"><div class="task-check" onclick="toggleTask(this);event.stopPropagation()"></div><span>Portale distributor v2: contenuti social pre-made, gamification, leaderboard</span></div>
+        </div>
+      </div>
+      <div class="phase-cost">
+        <div class="cost-num">€350</div>
+        <div class="cost-label">/ mese</div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- AGENTS -->
+  <section id="agents" class="section">
+    <div class="section-title">Sistema Multi-Agentico</div>
+
+    <div class="card" style="margin-bottom:24px;border-color:rgba(0,229,160,0.2);background:rgba(0,229,160,0.03);">
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:11px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:4px">Principio architetturale</div>
+          <div style="font-size:13px;color:var(--text2);">Un <strong style="color:var(--accent)">CEO Agent</strong> supervisiona e coordina 5 subagenti specializzati. Ogni agente ha memoria persistente, accesso ai propri tool, e comunica con gli altri tramite il database condiviso. Omar riceve report e approva le azioni critiche via Telegram.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="agent-card ceo" style="grid-column:1/-1;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;">
+          <div style="flex:1;min-width:200px;">
+            <div class="agent-icon">🧠</div>
+            <div class="agent-name">CEO Agent</div>
+            <div class="agent-desc">Il coordinatore centrale. Ogni mattina legge lo stato del DB, valuta le priorità, delega task ai subagenti, monitora i risultati e manda a Omar un report Telegram con metriche chiave + raccomandazioni. In Fase 4 propone strategie settimanali proattive. Richiede approvazione umana per azioni ad alto impatto.</div>
+            <div class="agent-tools">
+              <span class="tool-tag">Claude Sonnet</span>
+              <span class="tool-tag">APScheduler</span>
+              <span class="tool-tag">Supabase</span>
+              <span class="tool-tag">Telegram Bot</span>
+              <span class="tool-tag">FastAPI</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;min-width:160px;">
+            <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px">Ciclo operativo</div>
+            <div style="font-size:11px;color:var(--text2);border-left:2px solid var(--accent);padding-left:10px;">06:00 — Legge DB + analytics</div>
+            <div style="font-size:11px;color:var(--text2);border-left:2px solid var(--accent2);padding-left:10px;">06:15 — Delega task agli agenti</div>
+            <div style="font-size:11px;color:var(--text2);border-left:2px solid var(--warn);padding-left:10px;">08:00 — Report Telegram a Omar</div>
+            <div style="font-size:11px;color:var(--text2);border-left:2px solid var(--accent3);padding-left:10px;">On-demand — Richieste approvazione</div>
+          </div>
+        </div>
+        <div class="agent-status"><span class="status-dot dot-yellow"></span>Pianificato — Fase 0</div>
+      </div>
+    </div>
+
+    <div class="grid-3">
+      <div class="agent-card seo">
+        <div class="agent-icon">🔍</div>
+        <div class="agent-name">SEO Agent</div>
+        <div class="agent-desc">Analizza gap keyword per mercato con DataForSEO, identifica angoli tematici (sport in Belgio, beauty in Asia, ecc.), genera pagine WP usando il template esistente, invia preview a Omar via Telegram per approvazione, poi pubblica.</div>
+        <div class="agent-tools">
+          <span class="tool-tag">DataForSEO</span>
+          <span class="tool-tag">Claude Sonnet</span>
+          <span class="tool-tag">WP REST API</span>
+          <span class="tool-tag">N8N</span>
+          <span class="tool-tag">Google Sheets</span>
+        </div>
+        <div class="agent-status"><span class="status-dot dot-yellow"></span>Fase 2 — Pianificato</div>
+      </div>
+
+      <div class="agent-card funnel">
+        <div class="agent-icon">🎯</div>
+        <div class="agent-name">Funnel Agent</div>
+        <div class="agent-desc">Monitora conversion rate per ogni step del funnel. Identifica colli di bottiglia. Propone varianti A/B di headline e CTA. Gestisce segmentazione lead per interesse (sport/skin/online/ecc). Triggera le sequenze Mautic corrette.</div>
+        <div class="agent-tools">
+          <span class="tool-tag">Mautic API</span>
+          <span class="tool-tag">GA4 API</span>
+          <span class="tool-tag">Claude Haiku</span>
+          <span class="tool-tag">WP API</span>
+          <span class="tool-tag">Supabase</span>
+        </div>
+        <div class="agent-status"><span class="status-dot dot-yellow"></span>Fase 1 — Pianificato</div>
+      </div>
+
+      <div class="agent-card social">
+        <div class="agent-icon">📱</div>
+        <div class="agent-name">Social Agent</div>
+        <div class="agent-desc">Genera piano editoriale settimanale per Instagram, TikTok, LinkedIn. Adatta formato e tone per canale. Usa Ideogram per le immagini. Analizza performance e ottimizza. Scheduling via Buffer/Make. Fase 4: TikTok video script.</div>
+        <div class="agent-tools">
+          <span class="tool-tag">Claude Sonnet</span>
+          <span class="tool-tag">Ideogram API</span>
+          <span class="tool-tag">Buffer API</span>
+          <span class="tool-tag">Meta API</span>
+          <span class="tool-tag">TikTok API</span>
+        </div>
+        <div class="agent-status"><span class="status-dot dot-yellow"></span>Fase 2 — Pianificato</div>
+      </div>
+
+      <div class="agent-card nurture">
+        <div class="agent-icon">💬</div>
+        <div class="agent-name">Nurture Agent</div>
+        <div class="agent-desc">Gestisce sequenze email + WhatsApp post-signup. Alimenta il chatbot embedded nelle landing con la knowledge base. Segmenta per lingua, paese, interesse. Gestisce riattivazione distributor inattivi. Handoff a umano per casi complessi.</div>
+        <div class="agent-tools">
+          <span class="tool-tag">Mautic API</span>
+          <span class="tool-tag">360dialog</span>
+          <span class="tool-tag">Claude Haiku</span>
+          <span class="tool-tag">Supabase KB</span>
+          <span class="tool-tag">N8N</span>
+        </div>
+        <div class="agent-status"><span class="status-dot dot-yellow"></span>Fase 1-3 progressivo</div>
+      </div>
+
+      <div class="agent-card analytics">
+        <div class="agent-icon">📊</div>
+        <div class="agent-name">Analytics Agent</div>
+        <div class="agent-desc">Aggrega dati da GA4, Mautic, WP, social. Calcola CAC, LTV, conversion rate per funnel. Genera report giornaliero per CEO Agent. Alert anomalie (calo traffico, spike bounce). Alimenta la dashboard centralizzata in tempo reale.</div>
+        <div class="agent-tools">
+          <span class="tool-tag">GA4 API</span>
+          <span class="tool-tag">Mautic API</span>
+          <span class="tool-tag">Supabase</span>
+          <span class="tool-tag">FastAPI</span>
+          <span class="tool-tag">React Dashboard</span>
+        </div>
+        <div class="agent-status"><span class="status-dot dot-yellow"></span>Fase 2 — Pianificato</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FUNNEL -->
+  <section id="funnel" class="section">
+    <div class="section-title">Architettura del Funnel</div>
+
+    <div class="grid-2-1">
+      <div>
+        <div class="funnel-stage">
+          <div class="funnel-num" style="color:var(--accent3)">1</div>
+          <div class="funnel-content">
+            <div class="funnel-name">Acquisition — Top of Funnel</div>
+            <div class="funnel-channels">SEO organico · Google Ads · Instagram Reels · TikTok · LinkedIn · Referral</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-conversion">100% traffico</div>
+            <div class="progress-bar" style="width:100%"><div class="progress-fill fill-orange" style="width:100%"></div></div>
+          </div>
+        </div>
+
+        <div style="text-align:center;color:var(--text3);margin:4px 0;font-size:18px">↓</div>
+
+        <div class="funnel-stage">
+          <div class="funnel-num" style="color:var(--warn)">2</div>
+          <div class="funnel-content">
+            <div class="funnel-name">Landing Page — Angolo Business</div>
+            <div class="funnel-channels">6 micro-landing: Online · Offline · Ecommerce Mgr · HL/Skin · Sport · Business Pro</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-conversion">~40% click → landing</div>
+            <div class="progress-bar" style="width:100%"><div class="progress-fill fill-yellow" style="width:40%"></div></div>
+          </div>
+        </div>
+
+        <div style="text-align:center;color:var(--text3);margin:4px 0;font-size:18px">↓</div>
+
+        <div class="funnel-stage">
+          <div class="funnel-num" style="color:var(--accent2)">3</div>
+          <div class="funnel-content">
+            <div class="funnel-name">Lead Capture — Form + Chatbot</div>
+            <div class="funnel-channels">Form Mautic · Chatbot qualificazione · ROI Calculator · FAQ interattive</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-conversion">~15% landing → lead</div>
+            <div class="progress-bar" style="width:100%"><div class="progress-fill fill-blue" style="width:15%"></div></div>
+          </div>
+        </div>
+
+        <div style="text-align:center;color:var(--text3);margin:4px 0;font-size:18px">↓</div>
+
+        <div class="funnel-stage">
+          <div class="funnel-num" style="color:var(--accent)">4</div>
+          <div class="funnel-content">
+            <div class="funnel-name">Nurturing — Email + WhatsApp</div>
+            <div class="funnel-channels">Sequenza 21gg Mautic · WhatsApp video serie · Testimonianze · Obiezioni FAQ</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-conversion">~60% engaged</div>
+            <div class="progress-bar" style="width:100%"><div class="progress-fill fill-green" style="width:60%"></div></div>
+          </div>
+        </div>
+
+        <div style="text-align:center;color:var(--text3);margin:4px 0;font-size:18px">↓</div>
+
+        <div class="funnel-stage">
+          <div class="funnel-num" style="color:var(--accent)">5</div>
+          <div class="funnel-content">
+            <div class="funnel-name">Conversion — Call + Iscrizione</div>
+            <div class="funnel-channels">Calendly booking · Call con sponsor · Pagina iscrizione · Vantaggi fiscali</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-conversion">~12% lead → distributor</div>
+            <div class="progress-bar" style="width:100%"><div class="progress-fill fill-green" style="width:12%"></div></div>
+          </div>
+        </div>
+
+        <div style="text-align:center;color:var(--text3);margin:4px 0;font-size:18px">↓</div>
+
+        <div class="funnel-stage" style="border-color:rgba(0,229,160,0.2);background:rgba(0,229,160,0.03)">
+          <div class="funnel-num" style="color:var(--accent)">6</div>
+          <div class="funnel-content">
+            <div class="funnel-name">Retention — Portale Distributor</div>
+            <div class="funnel-channels">Dashboard personale · Knowledge base · Contenuti social · Training video · Chatbot</div>
+          </div>
+          <div class="funnel-bar-wrap">
+            <div class="funnel-conversion">Target: &gt;70% attivi a 90gg</div>
+            <div class="progress-bar" style="width:100%"><div class="progress-fill fill-green" style="width:70%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-title" style="margin-bottom:12px;">6 Angoli Business Landing</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="padding:10px;background:var(--surface2);border-radius:6px;border-left:2px solid var(--accent2);">
+              <div style="font-size:12px;font-weight:600;">💻 Online Digital</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">Social, content, ecommerce da casa</div>
+            </div>
+            <div style="padding:10px;background:var(--surface2);border-radius:6px;border-left:2px solid var(--warn);">
+              <div style="font-size:12px;font-weight:600;">🏪 Offline Community</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">Nutrition Club, eventi, community locale</div>
+            </div>
+            <div style="padding:10px;background:var(--surface2);border-radius:6px;border-left:2px solid var(--accent);">
+              <div style="font-size:12px;font-weight:600;">🛒 Ecommerce Manager</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">Infrastruttura pronta fornita da Omar</div>
+            </div>
+            <div style="padding:10px;background:var(--surface2);border-radius:6px;border-left:2px solid #b44ef7;">
+              <div style="font-size:12px;font-weight:600;">✨ HL/Skin Partner</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">Linea beauty, saloni, estetiste</div>
+            </div>
+            <div style="padding:10px;background:var(--surface2);border-radius:6px;border-left:2px solid var(--accent3);">
+              <div style="font-size:12px;font-weight:600;">🏋️ Sport & FitCamp</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">Personal trainer, palestre, atleti</div>
+            </div>
+            <div style="padding:10px;background:var(--surface2);border-radius:6px;border-left:2px solid var(--accent2);">
+              <div style="font-size:12px;font-weight:600;">💼 Business Pro</div>
+              <div style="font-size:11px;color:var(--text2);margin-top:3px">Imprenditori, professionisti, ex-manager</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title" style="margin-bottom:12px;">Sequenza Email 21gg</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <div style="display:flex;gap:10px;font-size:11px;align-items:center;">
+              <span style="color:var(--accent);min-width:30px;font-weight:600">D0</span>
+              <span style="color:var(--text2)">Welcome + video intro + link portale</span>
+            </div>
+            <div style="display:flex;gap:10px;font-size:11px;align-items:center;">
+              <span style="color:var(--accent2);min-width:30px;font-weight:600">D1</span>
+              <span style="color:var(--text2)">Come funziona davvero il business</span>
+            </div>
+            <div style="display:flex;gap:10px;font-size:11px;align-items:center;">
+              <span style="color:var(--accent2);min-width:30px;font-weight:600">D3</span>
+              <span style="color:var(--text2)">I 6 modi per guadagnare</span>
+            </div>
+            <div style="display:flex;gap:10px;font-size:11px;align-items:center;">
+              <span style="color:var(--warn);min-width:30px;font-weight:600">D5</span>
+              <span style="color:var(--text2)">Testimonianza + case study reale</span>
+            </div>
+            <div style="display:flex;gap:10px;font-size:11px;align-items:center;">
+              <span style="color:var(--warn);min-width:30px;font-weight:600">D7</span>
+              <span style="color:var(--text2)">FAQ obiezioni più comuni</span>
+            </div>
+            <div style="display:flex;gap:10px;font-size:11px;align-items:center;">
+              <span style="color:var(--accent3);min-width:30px;font-weight:600">D10</span>
+              <span style="color:var(--text2)">La tua settimana tipo come distributor</span>
+            </div>
+            <div style="display:flex;gap:10px;font-size:11px;align-items:center;">
+              <span style="color:var(--accent3);min-width:30px;font-weight:600">D14</span>
+              <span style="color:var(--text2)">Offerta call con sponsor / upline</span>
+            </div>
+            <div style="display:flex;gap:10px;font-size:11px;align-items:center;">
+              <span style="color:var(--text3);min-width:30px;font-weight:600">D21</span>
+              <span style="color:var(--text2)">Ultimo follow-up + urgency</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SOCIAL -->
+  <section id="social" class="section">
+    <div class="section-title">Strategia Social</div>
+    <div class="grid-3">
+      <div class="social-card">
+        <div class="social-header">
+          <div class="social-icon ig-icon">📸</div>
+          <div>
+            <div class="social-name">Instagram</div>
+            <div class="social-target">Targeting: 22-35 · Awareness + Recruiting giovani</div>
+          </div>
+        </div>
+        <div class="social-body">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:10px">Content Pillars</div>
+          <div class="pillar-item"><div class="pillar-dot"></div><span>Stile di vita: libertà, lavoro da casa, viaggi, flessibilità</span></div>
+          <div class="pillar-item"><div class="pillar-dot"></div><span>Risultati: numeri reali, testimonianze verificabili</span></div>
+          <div class="pillar-item"><div class="pillar-dot"></div><span>Educazione: come funziona il business step by step</span></div>
+          <div class="pillar-item"><div class="pillar-dot"></div><span>Behind the scenes: come lavora Omar, il sistema</span></div>
+          <div class="social-freq">
+            Formato: <strong>Reels 15-30s, Stories, Caroselli</strong><br>
+            Cadenza: <strong>5x Reels/sett · 3x Stories/sett</strong><br>
+            Tone: <strong>Aspirazionale ma autentico, no hype</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="social-card">
+        <div class="social-header">
+          <div class="social-icon tt-icon">🎵</div>
+          <div>
+            <div class="social-name">TikTok</div>
+            <div class="social-target">Targeting: 18-28 · Viralità + Recruiting Gen Z</div>
+          </div>
+        </div>
+        <div class="social-body">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:10px">Content Pillars</div>
+          <div class="pillar-item"><div class="pillar-dot" style="background:#ff2d55"></div><span>Hook forte nei primi 2 secondi — senza eccezioni</span></div>
+          <div class="pillar-item"><div class="pillar-dot" style="background:#ff2d55"></div><span>"Day in the life" di un distributor attivo</span></div>
+          <div class="pillar-item"><div class="pillar-dot" style="background:#ff2d55"></div><span>Sfida dei numeri: trasparenza totale sui guadagni</span></div>
+          <div class="pillar-item"><div class="pillar-dot" style="background:#ff2d55"></div><span>Risposte a dubbi comuni in formato veloce</span></div>
+          <div class="social-freq">
+            Formato: <strong>Video 30-60s, trend adattati</strong><br>
+            Cadenza: <strong>1x al giorno (minimo)</strong><br>
+            Tone: <strong>Diretto, veloce, senza filtri, autentico</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="social-card">
+        <div class="social-header">
+          <div class="social-icon li-icon">💼</div>
+          <div>
+            <div class="social-name">LinkedIn</div>
+            <div class="social-target">Targeting: 30-50 · Professionisti + Imprenditori</div>
+          </div>
+        </div>
+        <div class="social-body">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:10px">Content Pillars</div>
+          <div class="pillar-item"><div class="pillar-dot" style="background:#0077b5"></div><span>Entrepreneurship e libertà finanziaria — angolo strategico</span></div>
+          <div class="pillar-item"><div class="pillar-dot" style="background:#0077b5"></div><span>Come funziona il business Herbalife da angolo imprenditoriale</span></div>
+          <div class="pillar-item"><div class="pillar-dot" style="background:#0077b5"></div><span>Risultati di sistema, non solo personali — scalabilità</span></div>
+          <div class="pillar-item"><div class="pillar-dot" style="background:#0077b5"></div><span>AI + automazione applicata al business di network</span></div>
+          <div class="social-freq">
+            Formato: <strong>Post testuali, articoli, PDF-style doc</strong><br>
+            Cadenza: <strong>3x/settimana</strong><br>
+            Tone: <strong>Professionale, analitico, autorevole</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">Piano Contenuti Social — Settimana Tipo (generato dall'agente)</div>
+      <div style="overflow-x:auto;">
+        <table class="asset-table">
+          <tr>
+            <th>Giorno</th>
+            <th>Instagram</th>
+            <th>TikTok</th>
+            <th>LinkedIn</th>
+          </tr>
+          <tr>
+            <td><strong>Lunedì</strong></td>
+            <td>Reel: "Quanto guadagno in una settimana"</td>
+            <td>Hook: "Ti mostro i miei numeri reali"</td>
+            <td>Post: "Perché ho lasciato il mio lavoro"</td>
+          </tr>
+          <tr>
+            <td><strong>Martedì</strong></td>
+            <td>Story: Poll "Conosci Herbalife?"</td>
+            <td>Video: "Day in the life ore 7-19"</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><strong>Mercoledì</strong></td>
+            <td>Carosello: "6 modi per guadagnare"</td>
+            <td>Risposta: "Ma è una piramide?"</td>
+            <td>Articolo: "Business model analisi"</td>
+          </tr>
+          <tr>
+            <td><strong>Giovedì</strong></td>
+            <td>Story: Testimonianza team</td>
+            <td>Trend: adattato al business</td>
+            <td>—</td>
+          </tr>
+          <tr>
+            <td><strong>Venerdì</strong></td>
+            <td>Reel: "Fine settimana vs fine mese"</td>
+            <td>Hook: "Cosa nessuno ti dice su Herbalife"</td>
+            <td>Post: "I numeri di questo mese"</td>
+          </tr>
+          <tr>
+            <td><strong>Weekend</strong></td>
+            <td>Reel: stile di vita / behind scenes</td>
+            <td>Video casual / lifestyle</td>
+            <td>—</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- STACK -->
+  <section id="stack" class="section">
+    <div class="section-title">Stack Tecnologico e Costi</div>
+
+    <div class="card" style="padding:0;overflow:hidden;margin-bottom:24px;">
+      <div class="stack-row" style="padding:12px 16px;">
+        <span>Strumento</span>
+        <span>Funzione</span>
+        <span>Costo/mese</span>
+        <span>Fase</span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">Python + FastAPI</span>
+        <span class="stack-purpose">Backend agenti, API dashboard</span>
+        <span class="stack-cost">€0</span>
+        <span><span class="badge badge-green">F0</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">Supabase</span>
+        <span class="stack-purpose">DB condiviso tra agenti, KB embeddings</span>
+        <span class="stack-cost">€0-25</span>
+        <span><span class="badge badge-green">F0</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">Claude Sonnet API</span>
+        <span class="stack-purpose">CEO Agent, SEO Agent, Social Agent</span>
+        <span class="stack-cost">€30-50</span>
+        <span><span class="badge badge-green">F0</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">Claude Haiku API</span>
+        <span class="stack-purpose">Chatbot landing, Nurture Agent</span>
+        <span class="stack-cost">€10-20</span>
+        <span><span class="badge badge-blue">F1</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">Mautic self-hosted</span>
+        <span class="stack-purpose">Email sequences, lead management</span>
+        <span class="stack-cost">€0</span>
+        <span><span class="badge badge-green">F0</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">N8N</span>
+        <span class="stack-purpose">Workflow automation, connettori</span>
+        <span class="stack-cost">€0 (self-hosted)</span>
+        <span><span class="badge badge-green">F0</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">WordPress + WP REST API</span>
+        <span class="stack-purpose">CMS, landing pages, SEO pages</span>
+        <span class="stack-cost">€0 (esistente)</span>
+        <span><span class="badge badge-green">F0</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">DataForSEO</span>
+        <span class="stack-purpose">Keyword research, competitor analysis</span>
+        <span class="stack-cost">€50</span>
+        <span><span class="badge" style="background:rgba(180,78,247,0.15);color:#b44ef7;border:1px solid rgba(180,78,247,0.3)">F2</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">360dialog (WhatsApp)</span>
+        <span class="stack-purpose">WhatsApp Business API, nurture</span>
+        <span class="stack-cost">€45</span>
+        <span><span class="badge badge-yellow">F3</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">Buffer / Make.com</span>
+        <span class="stack-purpose">Social scheduling automatico</span>
+        <span class="stack-cost">€15-20</span>
+        <span><span class="badge" style="background:rgba(180,78,247,0.15);color:#b44ef7;border:1px solid rgba(180,78,247,0.3)">F2</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">Ideogram API</span>
+        <span class="stack-purpose">Generazione immagini social</span>
+        <span class="stack-cost">€8</span>
+        <span><span class="badge" style="background:rgba(180,78,247,0.15);color:#b44ef7;border:1px solid rgba(180,78,247,0.3)">F2</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">HeyGen</span>
+        <span class="stack-purpose">Video onboarding AI-generated</span>
+        <span class="stack-cost">€29</span>
+        <span><span class="badge badge-yellow">F3</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;">
+        <span class="stack-tool">Telegram Bot API</span>
+        <span class="stack-purpose">Comunicazione CEO Agent → Omar</span>
+        <span class="stack-cost">€0</span>
+        <span><span class="badge badge-green">F0</span></span>
+      </div>
+      <div class="stack-row" style="padding:10px 16px;border-top:2px solid var(--border2);">
+        <span class="stack-tool" style="color:var(--accent);font-weight:700">TOTALE PER FASE</span>
+        <span class="stack-purpose"></span>
+        <span></span>
+        <span></span>
+      </div>
+      <div class="stack-row" style="padding:8px 16px;">
+        <span style="color:var(--text2)">Fase 0 (attuale)</span>
+        <div class="progress-bar" style="margin:0"><div class="progress-fill fill-green" style="width:5%"></div></div>
+        <span class="stack-cost">€0</span>
+        <span></span>
+      </div>
+      <div class="stack-row" style="padding:8px 16px;">
+        <span style="color:var(--text2)">Fase 1 (+chatbot)</span>
+        <div class="progress-bar" style="margin:0"><div class="progress-fill fill-blue" style="width:20%"></div></div>
+        <span class="stack-cost">~€75</span>
+        <span></span>
+      </div>
+      <div class="stack-row" style="padding:8px 16px;">
+        <span style="color:var(--text2)">Fase 2 (+SEO+Social)</span>
+        <div class="progress-bar" style="margin:0"><div class="progress-fill fill-green" style="width:40%"></div></div>
+        <span class="stack-cost">~€150</span>
+        <span></span>
+      </div>
+      <div class="stack-row" style="padding:8px 16px;">
+        <span style="color:var(--text2)">Fase 3 (+WhatsApp)</span>
+        <div class="progress-bar" style="margin:0"><div class="progress-fill fill-yellow" style="width:65%"></div></div>
+        <span class="stack-cost">~€230</span>
+        <span></span>
+      </div>
+      <div class="stack-row" style="padding:8px 16px;">
+        <span style="color:var(--text2)">Fase 4 (sistema completo)</span>
+        <div class="progress-bar" style="margin:0"><div class="progress-fill fill-orange" style="width:100%"></div></div>
+        <span class="stack-cost">~€350</span>
+        <span></span>
+      </div>
+    </div>
+
+    <div class="card" style="border-color:rgba(0,229,160,0.15);background:rgba(0,229,160,0.02);">
+      <div class="card-title" style="margin-bottom:10px;color:var(--accent)">Zero Revenue Share</div>
+      <p style="font-size:12px;color:var(--text2);line-height:1.7;">Tutto lo stack è sotto controllo diretto. Nessun Polsia al 20% sul tuo revenue. Nessun vendor lock-in critico: ogni componente è sostituibile. Il costo mensile massimo a sistema completo è ~€350 — meno di un singolo distributor attivo nel tuo network. Il leverage è enorme.</p>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURE -->
+  <section id="arch" class="section">
+    <div class="section-title">Architettura del Sistema</div>
+
+    <div class="arch-diagram">
+      <div class="arch-layer">
+        <div class="arch-layer-title">Principal — Human in the Loop</div>
+        <div class="arch-nodes">
+          <div class="arch-node node-omar">👤 Omar — Telegram + Dashboard Web</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">↕ ↕ ↕</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-title">Orchestration Layer — CEO Agent</div>
+        <div class="arch-nodes">
+          <div class="arch-node node-ceo">🧠 CEO Agent — Claude Sonnet + APScheduler + Memoria Persistente</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">↕ ↕ ↕ ↕ ↕</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-title">Agent Layer — Specializzazione per Dominio</div>
+        <div class="arch-nodes">
+          <div class="arch-node node-agent">🔍 SEO Agent</div>
+          <div class="arch-node node-agent">🎯 Funnel Agent</div>
+          <div class="arch-node node-agent">📱 Social Agent</div>
+          <div class="arch-node node-agent">💬 Nurture Agent</div>
+          <div class="arch-node node-agent">📊 Analytics Agent</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">↕ ↕ ↕ ↕ ↕</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-title">Shared Data Layer — Database + Knowledge Base</div>
+        <div class="arch-nodes">
+          <div class="arch-node node-infra">🗄 Supabase DB — leads / distributors / content / analytics</div>
+          <div class="arch-node node-infra">📚 KB Embeddings — PDF Herbalife + FAQ + Compliance</div>
+          <div class="arch-node node-infra">📊 Google Sheets — Config + operational data</div>
+        </div>
+      </div>
+
+      <div class="arch-arrow">↕ ↕ ↕ ↕ ↕ ↕ ↕</div>
+
+      <div class="arch-layer">
+        <div class="arch-layer-title">Integration Layer — Tool API Access</div>
+        <div class="arch-nodes">
+          <div class="arch-node node-infra">WordPress REST</div>
+          <div class="arch-node node-infra">Mautic API</div>
+          <div class="arch-node node-infra">DataForSEO</div>
+          <div class="arch-node node-infra">Meta/TikTok API</div>
+          <div class="arch-node node-infra">360dialog WA</div>
+          <div class="arch-node node-infra">GA4 API</div>
+          <div class="arch-node node-infra">Ideogram API</div>
+          <div class="arch-node node-infra">Calendly API</div>
+          <div class="arch-node node-infra">N8N Webhooks</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-top:16px;">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px;">Human-in-the-Loop — Quando Omar approva</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-red"></span>
+            <span>Pubblicazione nuove pagine SEO</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-red"></span>
+            <span>Lancio e modifica campagne ads</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-red"></span>
+            <span>Modifiche al funnel core</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-red"></span>
+            <span>Post LinkedIn a nome Omar</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-red"></span>
+            <span>Spese API > €50 non pianificate</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px;">Autonomia Completa — Nessuna approvazione</div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-green"></span>
+            <span>Report e analytics giornalieri</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-green"></span>
+            <span>Scheduling social (su template approvati)</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-green"></span>
+            <span>Risposta chatbot (su KB approvata)</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-green"></span>
+            <span>Monitoraggio e alert anomalie</span>
+          </div>
+          <div style="display:flex;gap:10px;font-size:12px;align-items:center;">
+            <span class="status-dot dot-green"></span>
+            <span>Drafting contenuti (non pubblicazione)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RISKS -->
+  <section id="risks" class="section">
+    <div class="section-title">Risk Register</div>
+
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="risk-row header">
+        <span>Rischio</span>
+        <span>Probabilità</span>
+        <span>Impatto</span>
+        <span>Mitigazione</span>
+      </div>
+      <div class="risk-row">
+        <span>Violazione compliance Herbalife nei contenuti pubblicati</span>
+        <span><span class="risk-pill risk-med">Media</span></span>
+        <span><span class="risk-pill risk-high">Alto</span></span>
+        <span style="color:var(--text2)">KB con regole compliance. Review umana obbligatoria su ogni contenuto pubblico. Checklist nel template SEO.</span>
+      </div>
+      <div class="risk-row">
+        <span>Degradazione qualità contenuti AI nel tempo</span>
+        <span><span class="risk-pill risk-high">Alta</span></span>
+        <span><span class="risk-pill risk-med">Medio</span></span>
+        <span style="color:var(--text2)">Template validati a mano. Supervisione intensiva prime 4 settimane. Review campione mensile.</span>
+      </div>
+      <div class="risk-row">
+        <span>Over-engineering che blocca il lancio</span>
+        <span><span class="risk-pill risk-med">Media</span></span>
+        <span><span class="risk-pill risk-high">Alto</span></span>
+        <span style="color:var(--text2)">Logica fase per fase rigida. Non si passa alla fase successiva senza KPI della precedente verificati.</span>
+      </div>
+      <div class="risk-row">
+        <span>API cost fuori controllo</span>
+        <span><span class="risk-pill risk-low">Bassa</span></span>
+        <span><span class="risk-pill risk-med">Medio</span></span>
+        <span style="color:var(--text2)">Budget cap per agente in APScheduler. Alert Telegram a 80% del budget mensile. Haiku per chatbot.</span>
+      </div>
+      <div class="risk-row">
+        <span>Chatbot risponde in modo errato su prodotti o business</span>
+        <span><span class="risk-pill risk-med">Media</span></span>
+        <span><span class="risk-pill risk-med">Medio</span></span>
+        <span style="color:var(--text2)">KB aggiornata e validata. Fallback a umano per domande fuori KB. Log di tutte le conversazioni.</span>
+      </div>
+      <div class="risk-row">
+        <span>Confusione brand tra mercati diversi (tono, claim)</span>
+        <span><span class="risk-pill risk-med">Media</span></span>
+        <span><span class="risk-pill risk-low">Basso</span></span>
+        <span style="color:var(--text2)">Un template per lingua con tono validato. Versioni approvate prima del deploy automatico.</span>
+      </div>
+      <div class="risk-row">
+        <span>Dipendenza da single point of failure (N8N o Mautic)</span>
+        <span><span class="risk-pill risk-low">Bassa</span></span>
+        <span><span class="risk-pill risk-high">Alto</span></span>
+        <span style="color:var(--text2)">Backup automatici. Monitoring uptime. CEO Agent segnala down immediato via Telegram.</span>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>HerbaMarketer Recruiting Engine — Documento v1.0 — Aprile 2026</p>
+    <p>Omar Bortolato · hl-distributor.com · Aggiornare a fine ogni fase</p>
+  </footer>
+
+</div>
+
+<script>
+function showTab(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  event.target.classList.add('active');
+}
+
+function togglePhase(row) {
+  row.classList.toggle('expanded');
+}
+
+function toggleTask(el) {
+  el.classList.toggle('checked');
+  if (el.classList.contains('checked')) {
+    el.innerHTML = '✓';
+    el.style.fontSize = '10px';
+  } else {
+    el.innerHTML = '';
+  }
+  updateProgress();
+}
+
+function updateProgress() {
+  const phases = document.querySelectorAll('.phase-row');
+  const fills = document.querySelectorAll('.phase-progress-item .progress-fill');
+
+  phases.forEach((phase, i) => {
+    const tasks = phase.querySelectorAll('.task-check');
+    const done = phase.querySelectorAll('.task-check.checked');
+    if (tasks.length > 0 && fills[i]) {
+      const pct = Math.round((done.length / tasks.length) * 100);
+      fills[i].style.width = pct + '%';
+      const pctEl = fills[i].closest('.phase-progress-item')?.querySelector('.pp-pct');
+      if (pctEl) pctEl.textContent = pct + '%';
+    }
+  });
+
+  // Overall tasks in overview
+  const overviewTasks = document.querySelectorAll('#overview .task-check');
+  const overviewDone = document.querySelectorAll('#overview .task-check.checked');
+  if (overviewTasks.length > 0 && fills[0]) {
+    const pct = Math.round((overviewDone.length / overviewTasks.length) * 100);
+    fills[0].style.width = Math.max(pct, 5) + '%';
+  }
+}
+</script>
+</body>
+</html>
